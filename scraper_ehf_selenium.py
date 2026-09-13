@@ -54,6 +54,63 @@ class EHFScraperSelenium:
         conn.commit()
         conn.close()
 
+    def _click_load_more_until_exhausted(self, max_clicks=50):
+        """Clica repetidamente no botão 'carregar mais'/'load more' até ele
+        desaparecer ou parar de trazer partidas novas (com limite de segurança)."""
+        load_more_xpath = (
+            "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), 'load more') or "
+            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), 'carregar mais') or "
+            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), 'ver mais')] | "
+            "//a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), 'load more') or "
+            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), 'carregar mais') or "
+            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), 'ver mais')]"
+        )
+
+        previous_count = len(self.driver.find_elements(
+            By.CLASS_NAME, "table-row--results"))
+        clicks = 0
+
+        while clicks < max_clicks:
+            buttons = self.driver.find_elements(By.XPATH, load_more_xpath)
+            visible_buttons = [b for b in buttons if b.is_displayed()]
+
+            if not visible_buttons:
+                break
+
+            button = visible_buttons[0]
+            try:
+                self.driver.execute_script(
+                    "arguments[0].scrollIntoView(true);", button)
+                button.click()
+            except Exception:
+                break
+
+            clicks += 1
+
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    lambda d: len(d.find_elements(
+                        By.CLASS_NAME, "table-row--results")) > previous_count
+                )
+            except Exception:
+                # Botão não trouxe partidas novas: considera esgotado
+                break
+
+            new_count = len(self.driver.find_elements(
+                By.CLASS_NAME, "table-row--results"))
+            if new_count <= previous_count:
+                break
+            previous_count = new_count
+
+        if clicks > 0:
+            print(f"   🔄 Botão 'carregar mais' clicado {clicks}x")
+
     def get_matches_urls(self):
         print("🔍 Carregando página de partidas...\n")
         url = "https://ehfcl.eurohandball.com/men/2026-27/matches/"
@@ -67,6 +124,9 @@ class EHFScraperSelenium:
         except:
             print("   ⚠️ Timeout ao carregar")
         time.sleep(2)
+
+        self._click_load_more_until_exhausted()
+
         soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         matches = []
         match_links = soup.find_all('a', class_='table-row table-row--results')
