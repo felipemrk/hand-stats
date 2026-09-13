@@ -106,7 +106,10 @@ def todos():
             'taxa_conversao': round(taxa_conversao, 2)
         })
 
-    return jsonify(jogadores)
+    return jsonify({
+        'total': len(jogadores),
+        'players': jogadores
+    })
 
 
 if __name__ == '__main__':
