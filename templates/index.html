@@ -272,6 +272,20 @@
         padding: 40px;
         color: #999;
       }
+
+      .players-list-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 15px;
+        color: #333;
+      }
+
+      .players-count {
+        font-size: 12px;
+        font-weight: 400;
+        color: #999;
+      }
     </style>
   </head>
   <body>
@@ -354,8 +368,9 @@
             </div>
           </div>
 
-          <h3 style="margin-bottom: 15px; color: #333" id="playersListTitle">
+          <h3 class="players-list-title">
             Top Scorers 2026/27
+            <span id="playersCount" class="players-count"></span>
           </h3>
           <div class="players-list" id="playersList"></div>
         </div>
@@ -444,10 +459,9 @@
           .then((response) => response.json())
           .then((data) => {
             const playersList = document.getElementById("playersList");
-            const playersListTitle =
-              document.getElementById("playersListTitle");
+            const playersCount = document.getElementById("playersCount");
             playersList.innerHTML = "";
-            playersListTitle.textContent = `Top Scorers 2026/27 (${data.total} jogadores)`;
+            playersCount.textContent = `${data.total} jogadores`;
 
             data.players.forEach((jogador) => {
               const html = `
