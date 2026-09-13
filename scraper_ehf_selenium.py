@@ -57,15 +57,22 @@ class EHFScraperSelenium:
     def _click_load_more_until_exhausted(self, max_clicks=50):
         """Clica repetidamente no botão 'carregar mais'/'load more' até ele
         desaparecer ou parar de trazer partidas novas (com limite de segurança)."""
+        # Site usa <button class="load-more-matches">Load Previous Matches</button>.
+        # Casa pela classe (principal) e, como fallback, por variações de texto.
         load_more_xpath = (
+            "//*[contains(concat(' ', normalize-space(@class), ' '), ' load-more-matches ')] | "
             "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
             "'abcdefghijklmnopqrstuvwxyz'), 'load more') or "
+            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), 'load previous') or "
             "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
             "'abcdefghijklmnopqrstuvwxyz'), 'carregar mais') or "
             "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
             "'abcdefghijklmnopqrstuvwxyz'), 'ver mais')] | "
             "//a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
             "'abcdefghijklmnopqrstuvwxyz'), 'load more') or "
+            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), 'load previous') or "
             "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
             "'abcdefghijklmnopqrstuvwxyz'), 'carregar mais') or "
             "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
@@ -86,8 +93,9 @@ class EHFScraperSelenium:
             button = visible_buttons[0]
             try:
                 self.driver.execute_script(
-                    "arguments[0].scrollIntoView(true);", button)
-                button.click()
+                    "arguments[0].scrollIntoView({block: 'center'});", button)
+                # Click via JS: evita falha por elementos sobrepostos (ex: banners)
+                self.driver.execute_script("arguments[0].click();", button)
             except Exception:
                 break
 
