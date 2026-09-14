@@ -73,14 +73,45 @@ def search():
 
 @app.route('/api/todos', methods=['GET'])
 def todos():
-    """Retorna todos os jogadores, opcionalmente filtrados por time"""
+    """Retorna todos os jogadores, opcionalmente filtrados por time e/ou
+    por um periodo de datas. Com filtro de data, os totais sao calculados
+    a partir de player_match_stats + matches (nao da tabela players)."""
     team = request.args.get('team', '').strip()
+    data_inicio = request.args.get('data_inicio', '').strip()
+    data_fim = request.args.get('data_fim', '').strip()
 
     conn = sqlite3.connect('jogadores.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    if team:
+    if data_inicio or data_fim:
+        query = '''
+            SELECT pms.player_name AS name,
+                   MAX(pms.team) AS team,
+                   COUNT(DISTINCT pms.match_id) AS games,
+                   COALESCE(SUM(pms.goals), 0) AS goals,
+                   COALESCE(SUM(pms.attempts), 0) AS attempts,
+                   COALESCE(SUM(pms.seven_meter), 0) AS seven_meter
+            FROM player_match_stats pms
+            JOIN matches m ON m.id = pms.match_id
+            WHERE 1=1
+        '''
+        params = []
+
+        if data_inicio:
+            query += ' AND m.match_date >= ?'
+            params.append(data_inicio)
+        if data_fim:
+            query += ' AND m.match_date <= ?'
+            params.append(data_fim)
+        if team:
+            query += ' AND pms.team = ?'
+            params.append(team)
+
+        query += ' GROUP BY pms.player_name ORDER BY goals DESC'
+
+        cursor.execute(query, params)
+    elif team:
         cursor.execute('''
             SELECT name, team, games, goals, attempts, seven_meter
             FROM players
