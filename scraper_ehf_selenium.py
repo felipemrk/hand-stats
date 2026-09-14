@@ -15,13 +15,37 @@ import tempfile
 import shutil
 import re
 import json
+import argparse
 from datetime import datetime
 from urllib.parse import unquote
 import database
 
 
+def build_default_base_url(gender, competition, season):
+    """Deriva a URL base de partidas para competicoes conhecidas do site da
+    EHF. Retorna None se a competicao nao for reconhecida (nesse caso o
+    chamador deve passar --base-url explicitamente)."""
+    if competition == 'EHF Champions League':
+        season_slug = season.replace('/', '-')
+        return f"https://ehfcl.eurohandball.com/{gender}/{season_slug}/matches/"
+    return None
+
+
 class EHFScraperSelenium:
-    def __init__(self):
+    def __init__(self, gender='men', competition='EHF Champions League',
+                 season='2026/27', base_url=None):
+        self.gender = gender
+        self.competition = competition
+        self.season = season
+        self.base_url = base_url or build_default_base_url(
+            gender, competition, season)
+
+        if not self.base_url:
+            raise ValueError(
+                f"Nao ha URL padrao para a competicao '{competition}'. "
+                "Passe base_url explicitamente."
+            )
+
         self.db_name = 'jogadores.db'
         self.download_dir = tempfile.mkdtemp()
 
@@ -162,7 +186,7 @@ class EHFScraperSelenium:
 
     def get_matches_urls(self):
         print("🔍 Carregando página de partidas...\n")
-        url = "https://ehfcl.eurohandball.com/men/2026-27/matches/"
+        url = self.base_url
         self.driver.get(url)
         print("   ⏳ Esperando dados carregar...")
         try:
@@ -513,7 +537,7 @@ class EHFScraperSelenium:
 
     def run(self):
         print("\n" + "="*60)
-        print("🏑 SCRAPER EHF CHAMPIONS LEAGUE 2026/27")
+        print(f"🏑 SCRAPER {self.competition.upper()} {self.season} ({self.gender.upper()})")
         print("="*60 + "\n")
 
         try:
@@ -535,13 +559,16 @@ class EHFScraperSelenium:
                     if players:
                         self.save_match_and_stats(
                             match_url, home, away, home_score, away_score,
-                            match_date, players)
+                            match_date, players,
+                            gender=self.gender, competition=self.competition)
                 except Exception as e:
                     print(f"   ❌ Erro nesta partida: {str(e)}")
                 time.sleep(1)
 
             if all_players_data:
-                self.update_database(all_players_data)
+                self.update_database(
+                    all_players_data, gender=self.gender,
+                    competition=self.competition, season=self.season)
                 print("="*60)
                 print("✅ SCRAPING CONCLUÍDO!")
                 print("="*60 + "\n")
@@ -555,6 +582,31 @@ class EHFScraperSelenium:
             shutil.rmtree(self.download_dir, ignore_errors=True)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Scraper de estatisticas de jogadores da EHF')
+    parser.add_argument(
+        '--gender', choices=['men', 'women'], default='men',
+        help="Naipe da competicao (padrao: men)")
+    parser.add_argument(
+        '--competition', default='EHF Champions League',
+        help="Nome da competicao (padrao: 'EHF Champions League')")
+    parser.add_argument(
+        '--season', default='2026/27',
+        help="Temporada, formato 'AAAA/AA' (padrao: '2026/27')")
+    parser.add_argument(
+        '--base-url', default=None,
+        help="URL base de partidas, necessaria para competicoes sem URL "
+             "padrao conhecida")
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    scraper = EHFScraperSelenium()
+    args = parse_args()
+    scraper = EHFScraperSelenium(
+        gender=args.gender,
+        competition=args.competition,
+        season=args.season,
+        base_url=args.base_url
+    )
     scraper.run()
