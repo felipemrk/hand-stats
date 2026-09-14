@@ -1,444 +1,631 @@
 <!-- templates/index.html -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EHF Champions League 2026/27 - Player Database</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-        }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
 
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px;
-            text-align: center;
-        }
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px;
+        text-align: center;
+      }
 
-        .header h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
+      .header h1 {
+        font-size: 32px;
+        margin-bottom: 10px;
+      }
 
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
-        }
+      .header p {
+        font-size: 14px;
+        opacity: 0.9;
+      }
 
-        .tabs {
-            display: flex;
-            border-bottom: 2px solid #e0e0e0;
-            background: #f5f5f5;
-        }
+      .tabs {
+        display: flex;
+        border-bottom: 2px solid #e0e0e0;
+        background: #f5f5f5;
+      }
 
-        .tab {
-            flex: 1;
-            padding: 15px;
-            text-align: center;
-            cursor: pointer;
-            border: none;
-            background: none;
-            font-size: 16px;
-            font-weight: 600;
-            color: #666;
-            transition: all 0.3s;
-        }
+      .tab {
+        flex: 1;
+        padding: 15px;
+        text-align: center;
+        cursor: pointer;
+        border: none;
+        background: none;
+        font-size: 16px;
+        font-weight: 600;
+        color: #666;
+        transition: all 0.3s;
+      }
 
-        .tab.active {
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
-            background: white;
-        }
+      .tab.active {
+        color: #667eea;
+        border-bottom: 3px solid #667eea;
+        background: white;
+      }
 
-        .tab:hover {
-            background: white;
-        }
+      .tab:hover {
+        background: white;
+      }
 
-        .content {
-            padding: 40px;
-        }
+      .content {
+        padding: 40px;
+      }
 
-        .tab-content {
-            display: none;
-        }
+      .tab-content {
+        display: none;
+      }
 
-        .tab-content.active {
-            display: block;
-        }
+      .tab-content.active {
+        display: block;
+      }
 
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-        }
+      .search-box {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+      }
 
-        .search-box input {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
+      .search-input-wrapper {
+        position: relative;
+        flex: 1;
+      }
 
-        .search-box input:focus {
-            border-color: #667eea;
-        }
+      .search-box input {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 16px;
+        outline: none;
+        transition: border-color 0.3s;
+      }
 
-        .search-box button {
-            padding: 12px 30px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: background 0.3s;
-        }
+      .search-box input:focus {
+        border-color: #667eea;
+      }
 
-        .search-box button:hover {
-            background: #764ba2;
-        }
+      .search-box button {
+        padding: 12px 30px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        transition: background 0.3s;
+      }
 
-        .player-detail {
-            background: #f5f5f5;
-            padding: 30px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
+      .search-box button:hover {
+        background: #764ba2;
+      }
 
-        .player-detail.show {
-            display: block;
-        }
+      .autocomplete-list {
+        display: none;
+        position: absolute;
+        top: calc(100% + 5px);
+        left: 0;
+        right: 0;
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        max-height: 220px;
+        overflow-y: auto;
+        z-index: 10;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+      }
 
-        .player-header {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
+      .autocomplete-list.show {
+        display: block;
+      }
 
-        .player-icon {
-            width: 80px;
-            height: 80px;
-            background: #667eea;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            color: white;
-        }
+      .autocomplete-item {
+        padding: 10px 12px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #333;
+      }
 
-        .player-info h2 {
-            color: #333;
-            font-size: 28px;
-            margin-bottom: 5px;
-        }
+      .autocomplete-item:hover {
+        background: #f0f0ff;
+      }
 
-        .player-info p {
-            color: #666;
-            font-size: 14px;
-        }
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        padding: 20px;
+      }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
+      .modal-overlay.show {
+        display: flex;
+      }
 
-        .stat-box {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-            text-align: center;
-        }
+      .player-detail {
+        background: #f5f5f5;
+        padding: 30px;
+        border-radius: 8px;
+        position: relative;
+        max-width: 600px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+      }
 
-        .stat-label {
-            color: #999;
-            font-size: 12px;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
+      .modal-close {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 50%;
+        background: #e0e0e0;
+        color: #333;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.3s;
+      }
 
-        .stat-value {
-            color: #667eea;
-            font-size: 32px;
-            font-weight: bold;
-        }
+      .modal-close:hover {
+        background: #d32f2f;
+        color: white;
+      }
 
-        .error {
-            background: #ffe0e0;
-            color: #d32f2f;
-            padding: 15px;
-            border-radius: 8px;
-            display: none;
-            margin-bottom: 20px;
-        }
+      .player-header {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 30px;
+      }
 
-        .error.show {
-            display: block;
-        }
+      .player-icon {
+        width: 80px;
+        height: 80px;
+        background: #667eea;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+        color: white;
+      }
 
-        .loading {
-            text-align: center;
-            color: #999;
-            display: none;
-            margin: 20px 0;
-        }
+      .player-info h2 {
+        color: #333;
+        font-size: 28px;
+        margin-bottom: 5px;
+      }
 
-        .loading.show {
-            display: block;
-        }
+      .player-info p {
+        color: #666;
+        font-size: 14px;
+      }
 
-        .players-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-height: 500px;
-            overflow-y: auto;
-        }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+      }
 
-        .player-item {
-            background: white;
-            padding: 15px;
-            border-radius: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-left: 4px solid #667eea;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
+      .stat-box {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        text-align: center;
+      }
 
-        .player-item:hover {
-            background: #f9f9f9;
-        }
+      .stat-label {
+        color: #999;
+        font-size: 12px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
 
-        .player-name {
-            flex: 1;
-        }
+      .stat-value {
+        color: #667eea;
+        font-size: 32px;
+        font-weight: bold;
+      }
 
-        .player-name strong {
-            color: #333;
-            display: block;
-            font-size: 16px;
-        }
+      .error {
+        background: #ffe0e0;
+        color: #d32f2f;
+        padding: 15px;
+        border-radius: 8px;
+        display: none;
+        margin-bottom: 20px;
+      }
 
-        .player-name small {
-            color: #999;
-            display: block;
-            font-size: 12px;
-        }
+      .error.show {
+        display: block;
+      }
 
-        .player-stats-summary {
-            text-align: right;
-            font-size: 12px;
-        }
+      .loading {
+        text-align: center;
+        color: #999;
+        display: none;
+        margin: 20px 0;
+      }
 
-        .player-stats-summary div {
-            color: #667eea;
-            font-weight: 600;
-        }
+      .loading.show {
+        display: block;
+      }
 
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-        }
+      .players-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+
+      .player-item {
+        background: white;
+        padding: 15px;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-left: 4px solid #667eea;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+
+      .player-item:hover {
+        background: #f9f9f9;
+      }
+
+      .player-name {
+        flex: 1;
+      }
+
+      .player-name strong {
+        color: #333;
+        display: block;
+        font-size: 16px;
+      }
+
+      .player-name small {
+        color: #999;
+        display: block;
+        font-size: 12px;
+      }
+
+      .player-stats-summary {
+        text-align: right;
+        font-size: 12px;
+      }
+
+      .player-stats-summary div {
+        color: #667eea;
+        font-weight: 600;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+      }
+
+      .team-filter-box {
+        margin-bottom: 15px;
+      }
+
+      .team-filter-box select {
+        padding: 10px 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #333;
+        background: white;
+        outline: none;
+        cursor: pointer;
+      }
+
+      .team-filter-box select:focus {
+        border-color: #667eea;
+      }
+
+      .players-list-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 15px;
+        color: #333;
+      }
+
+      .players-count {
+        font-size: 12px;
+        font-weight: 400;
+        color: #999;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header">
-            <h1>🏑 EHF Champions League</h1>
-            <p>2026/27 - Player Database</p>
-        </div>
+      <div class="header">
+        <h1>🏑 EHF Champions League</h1>
+        <p>2026/27 - Player Database</p>
+      </div>
 
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('jogadores')">👤 JOGADORES</button>
-            <button class="tab" onclick="switchTab('historico')">📊 HISTÓRICO DE TIME</button>
-        </div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('jogadores')">
+          👤 JOGADORES
+        </button>
+        <button class="tab" onclick="switchTab('historico')">
+          📊 HISTÓRICO DE TIME
+        </button>
+      </div>
 
-        <div class="content">
-            <!-- Aba Jogadores -->
-            <div id="jogadores" class="tab-content active">
-                <div class="search-box">
-                    <input 
-                        type="text" 
-                        id="searchInput" 
-                        placeholder="Escolha o Player"
-                        autocomplete="off"
-                    >
-                    <button onclick="buscar()">PROCURAR PARTIDAS</button>
-                </div>
-
-                <div class="loading" id="loading">🔄 Buscando...</div>
-                <div class="error" id="error"></div>
-
-                <div class="player-detail" id="playerDetail">
-                    <div class="player-header">
-                        <div class="player-icon">⚽</div>
-                        <div class="player-info">
-                            <h2 id="playerName"></h2>
-                            <p id="playerTeam"></p>
-                        </div>
-                    </div>
-
-                    <div class="stats-grid">
-                        <div class="stat-box">
-                            <div class="stat-label">Total Match</div>
-                            <div class="stat-value" id="playerGames">0</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-label">Med/Gols</div>
-                            <div class="stat-value" id="playerMediaGols">0</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-label">Med/Gols/7M</div>
-                            <div class="stat-value" id="playerMedia7m">0</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-label">Med/Tentativas</div>
-                            <div class="stat-value" id="playerMediaTentativas">0</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-label">Med/Converting</div>
-                            <div class="stat-value" id="playerTaxaConversao">0%</div>
-                        </div>
-                    </div>
-
-                    <div class="stats-grid">
-                        <div class="stat-box">
-                            <div class="stat-label">Total Gols</div>
-                            <div class="stat-value" id="playerTotalGols">0</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-label">Total 7M</div>
-                            <div class="stat-value" id="playerTotal7m">0</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-label">Total Tentativas</div>
-                            <div class="stat-value" id="playerTotalTentativas">0</div>
-                        </div>
-                    </div>
-                </div>
-
-                <h3 style="margin-bottom: 15px; color: #333;">Top Scorers 2026/27</h3>
-                <div class="players-list" id="playersList"></div>
+      <div class="content">
+        <!-- Aba Jogadores -->
+        <div id="jogadores" class="tab-content active">
+          <div class="search-box">
+            <div class="search-input-wrapper">
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Escolha o Player"
+                autocomplete="off"
+              />
+              <div class="autocomplete-list" id="autocompleteList"></div>
             </div>
+            <button onclick="buscar()">PROCURAR PARTIDAS</button>
+          </div>
 
-            <!-- Aba Histórico de Time -->
-            <div id="historico" class="tab-content">
-                <div class="empty-state">
-                    <p>📊 Recurso em desenvolvimento</p>
+          <div class="loading" id="loading">🔄 Buscando...</div>
+          <div class="error" id="error"></div>
+
+          <div
+            class="modal-overlay"
+            id="playerModalOverlay"
+            onclick="fecharModalSeClicarFora(event)"
+          >
+            <div class="player-detail" id="playerDetail">
+              <button
+                class="modal-close"
+                onclick="fecharModal()"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
+              <div class="player-header">
+                <div class="player-icon">⚽</div>
+                <div class="player-info">
+                  <h2 id="playerName"></h2>
+                  <p id="playerTeam"></p>
                 </div>
+              </div>
+
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <div class="stat-label">Total Match</div>
+                  <div class="stat-value" id="playerGames">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Med/Gols</div>
+                  <div class="stat-value" id="playerMediaGols">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Med/Gols/7M</div>
+                  <div class="stat-value" id="playerMedia7m">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Med/Tentativas</div>
+                  <div class="stat-value" id="playerMediaTentativas">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Med/Converting</div>
+                  <div class="stat-value" id="playerTaxaConversao">0%</div>
+                </div>
+              </div>
+
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <div class="stat-label">Total Gols</div>
+                  <div class="stat-value" id="playerTotalGols">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Total 7M</div>
+                  <div class="stat-value" id="playerTotal7m">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Total Tentativas</div>
+                  <div class="stat-value" id="playerTotalTentativas">0</div>
+                </div>
+              </div>
             </div>
+          </div>
+
+          <div class="team-filter-box">
+            <select id="teamFilter" onchange="filtrarPorTime()">
+              <option value="">Todos os times</option>
+            </select>
+          </div>
+
+          <h3 class="players-list-title">
+            Top Scorers 2026/27
+            <span id="playersCount" class="players-count"></span>
+          </h3>
+          <div class="players-list" id="playersList"></div>
         </div>
+
+        <!-- Aba Histórico de Time -->
+        <div id="historico" class="tab-content">
+          <div class="empty-state">
+            <p>📊 Recurso em desenvolvimento</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
-        function switchTab(tab) {
-            // Remove active de todas as abas
-            document.querySelectorAll('.tab-content').forEach(el => {
-                el.classList.remove('active');
-            });
-            document.querySelectorAll('.tab').forEach(el => {
-                el.classList.remove('active');
-            });
+      function switchTab(tab) {
+        // Remove active de todas as abas
+        document.querySelectorAll(".tab-content").forEach((el) => {
+          el.classList.remove("active");
+        });
+        document.querySelectorAll(".tab").forEach((el) => {
+          el.classList.remove("active");
+        });
 
-            // Ativa a aba selecionada
-            document.getElementById(tab).classList.add('active');
-            event.target.classList.add('active');
+        // Ativa a aba selecionada
+        document.getElementById(tab).classList.add("active");
+        event.target.classList.add("active");
+      }
+
+      window.onload = function () {
+        carregarTimes();
+        carregarTodos();
+      };
+
+      function carregarTimes() {
+        fetch("/api/teams")
+          .then((response) => response.json())
+          .then((times) => {
+            const teamFilter = document.getElementById("teamFilter");
+            times.forEach((time) => {
+              const option = document.createElement("option");
+              option.value = time;
+              option.textContent = time;
+              teamFilter.appendChild(option);
+            });
+          });
+      }
+
+      function filtrarPorTime() {
+        const time = document.getElementById("teamFilter").value;
+        carregarTodos(time);
+      }
+
+      function buscar() {
+        const termo = document.getElementById("searchInput").value.trim();
+
+        if (termo.length < 2) {
+          mostrarErro("Digite pelo menos 2 caracteres");
+          return;
         }
 
-        window.onload = function() {
-            carregarTodos();
-        };
+        const loading = document.getElementById("loading");
+        const error = document.getElementById("error");
 
-        function buscar() {
-            const termo = document.getElementById('searchInput').value.trim();
-            
-            if (termo.length < 2) {
-                mostrarErro('Digite pelo menos 2 caracteres');
-                return;
-            }
+        loading.classList.add("show");
+        error.classList.remove("show");
+        fecharModal();
 
-            const loading = document.getElementById('loading');
-            const error = document.getElementById('error');
-            const detail = document.getElementById('playerDetail');
+        fetch(`/api/search?q=${encodeURIComponent(termo)}`)
+          .then((response) => {
+            if (!response.ok) throw new Error("Jogador não encontrado");
+            return response.json();
+          })
+          .then((data) => {
+            loading.classList.remove("show");
 
-            loading.classList.add('show');
-            error.classList.remove('show');
-            detail.classList.remove('show');
+            document.getElementById("playerName").textContent = data.name;
+            document.getElementById("playerTeam").textContent =
+              data.team || "Unknown";
+            document.getElementById("playerGames").textContent = data.games;
+            document.getElementById("playerMediaGols").textContent =
+              data.media_gols;
+            document.getElementById("playerMedia7m").textContent =
+              data.media_7m;
+            document.getElementById("playerMediaTentativas").textContent =
+              data.media_tentativas;
+            document.getElementById("playerTaxaConversao").textContent =
+              data.taxa_conversao + "%";
 
-            fetch(`/api/search?q=${encodeURIComponent(termo)}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Jogador não encontrado');
-                    return response.json();
-                })
-                .then(data => {
-                    loading.classList.remove('show');
-                    
-                    document.getElementById('playerName').textContent = data.name;
-                    document.getElementById('playerTeam').textContent = data.team || 'Unknown';
-                    document.getElementById('playerGames').textContent = data.games;
-                    document.getElementById('playerMediaGols').textContent = data.media_gols;
-                    document.getElementById('playerMedia7m').textContent = data.media_7m;
-                    document.getElementById('playerMediaTentativas').textContent = data.media_tentativas;
-                    document.getElementById('playerTaxaConversao').textContent = data.taxa_conversao + '%';
-                    
-                    document.getElementById('playerTotalGols').textContent = data.goals;
-                    document.getElementById('playerTotal7m').textContent = data.seven_meter;
-                    document.getElementById('playerTotalTentativas').textContent = data.attempts;
+            document.getElementById("playerTotalGols").textContent = data.goals;
+            document.getElementById("playerTotal7m").textContent =
+              data.seven_meter;
+            document.getElementById("playerTotalTentativas").textContent =
+              data.attempts;
 
-                    detail.classList.add('show');
-                })
-                .catch(err => {
-                    loading.classList.remove('show');
-                    mostrarErro('Jogador não encontrado');
-                });
+            abrirModal();
+          })
+          .catch((err) => {
+            loading.classList.remove("show");
+            mostrarErro("Jogador não encontrado");
+          });
+      }
+
+      function abrirModal() {
+        document.getElementById("playerModalOverlay").classList.add("show");
+      }
+
+      function fecharModal() {
+        document.getElementById("playerModalOverlay").classList.remove("show");
+      }
+
+      function fecharModalSeClicarFora(event) {
+        if (event.target.id === "playerModalOverlay") {
+          fecharModal();
         }
+      }
 
-        function carregarTodos() {
-            fetch('/api/todos')
-                .then(response => response.json())
-                .then(data => {
-                    const playersList = document.getElementById('playersList');
-                    playersList.innerHTML = '';
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          fecharModal();
+        }
+      });
 
-                    data.forEach(jogador => {
-                        const html = `
+      function carregarTodos(team) {
+        const url = team
+          ? `/api/todos?team=${encodeURIComponent(team)}`
+          : "/api/todos";
+
+        fetch(url)
+          .then((response) => response.json())
+          .then((data) => {
+            const playersList = document.getElementById("playersList");
+            const playersCount = document.getElementById("playersCount");
+            playersList.innerHTML = "";
+            playersCount.textContent = `${data.total} jogadores`;
+
+            data.players.forEach((jogador) => {
+              const html = `
                             <div class="player-item" onclick="selecionarJogador('${jogador.name}')">
                                 <div class="player-name">
                                     <strong>${jogador.name}</strong>
-                                    <small>${jogador.team || 'Unknown'}</small>
+                                    <small>${jogador.team || "Unknown"}</small>
                                 </div>
                                 <div class="player-stats-summary">
                                     <div>Jogos: ${jogador.games}</div>
@@ -446,25 +633,95 @@
                                 </div>
                             </div>
                         `;
-                        playersList.innerHTML += html;
-                    });
-                });
+              playersList.innerHTML += html;
+            });
+          });
+      }
+
+      function selecionarJogador(nome) {
+        document.getElementById("searchInput").value = nome;
+        esconderAutocomplete();
+        buscar();
+      }
+
+      function mostrarErro(mensagem) {
+        const error = document.getElementById("error");
+        error.textContent = "❌ " + mensagem;
+        error.classList.add("show");
+      }
+
+      let autocompleteTimeout = null;
+
+      function esconderAutocomplete() {
+        const autocompleteList = document.getElementById("autocompleteList");
+        autocompleteList.classList.remove("show");
+        autocompleteList.innerHTML = "";
+      }
+
+      function buscarSugestoes(termo) {
+        fetch(`/api/autocomplete?q=${encodeURIComponent(termo)}`)
+          .then((response) => response.json())
+          .then((nomes) => {
+            const autocompleteList =
+              document.getElementById("autocompleteList");
+
+            if (!nomes.length) {
+              esconderAutocomplete();
+              return;
+            }
+
+            autocompleteList.innerHTML = nomes
+              .map(
+                (nome) =>
+                  `<div class="autocomplete-item" onclick="selecionarSugestao('${nome.replace(/'/g, "\\'")}')">${nome}</div>`,
+              )
+              .join("");
+            autocompleteList.classList.add("show");
+          });
+      }
+
+      function selecionarSugestao(nome) {
+        document.getElementById("searchInput").value = nome;
+        esconderAutocomplete();
+        buscar();
+      }
+
+      const searchInputEl = document.getElementById("searchInput");
+
+      searchInputEl.addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+          esconderAutocomplete();
+          buscar();
+        }
+      });
+
+      searchInputEl.addEventListener("input", function () {
+        const termo = this.value.trim();
+
+        clearTimeout(autocompleteTimeout);
+
+        if (termo.length < 2) {
+          esconderAutocomplete();
+          return;
         }
 
-        function selecionarJogador(nome) {
-            document.getElementById('searchInput').value = nome;
-            buscar();
-        }
+        autocompleteTimeout = setTimeout(() => {
+          buscarSugestoes(termo);
+        }, 300);
+      });
 
-        function mostrarErro(mensagem) {
-            const error = document.getElementById('error');
-            error.textContent = '❌ ' + mensagem;
-            error.classList.add('show');
+      searchInputEl.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          esconderAutocomplete();
         }
+      });
 
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') buscar();
-        });
+      document.addEventListener("click", function (e) {
+        const wrapper = document.querySelector(".search-input-wrapper");
+        if (!wrapper.contains(e.target)) {
+          esconderAutocomplete();
+        }
+      });
     </script>
-</body>
+  </body>
 </html>
