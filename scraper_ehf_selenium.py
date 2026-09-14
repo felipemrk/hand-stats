@@ -152,23 +152,38 @@ class EHFScraperSelenium:
                 break
 
             button = visible_buttons[0]
-            try:
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView({block: 'center'});", button)
-                # Click via JS: evita falha por elementos sobrepostos (ex: banners)
-                self.driver.execute_script("arguments[0].click();", button)
-            except Exception:
-                break
+
+            # Ate 2 tentativas de clique: se o app Vue ainda nao tiver
+            # terminado de anexar o handler do botao no momento do clique
+            # (condicao de corrida observada em execucoes reais mais lentas
+            # que o ambiente de teste), o primeiro clique pode nao surtir
+            # efeito - uma segunda tentativa resolve sem custo extra quando
+            # o primeiro clique ja funcionou (o loop externo so chega aqui
+            # de novo se ainda houver mais partidas pra carregar).
+            grew = False
+            for attempt in range(2):
+                try:
+                    self.driver.execute_script(
+                        "arguments[0].scrollIntoView({block: 'center'});", button)
+                    # Click via JS: evita falha por elementos sobrepostos (ex: banners)
+                    self.driver.execute_script("arguments[0].click();", button)
+                except Exception:
+                    break
+
+                try:
+                    WebDriverWait(self.driver, 10).until(
+                        lambda d: len(d.find_elements(
+                            By.CLASS_NAME, "table-row--results")) > previous_count
+                    )
+                    grew = True
+                    break
+                except Exception:
+                    continue  # tenta de novo (attempt 1) antes de desistir
 
             clicks += 1
 
-            try:
-                WebDriverWait(self.driver, 10).until(
-                    lambda d: len(d.find_elements(
-                        By.CLASS_NAME, "table-row--results")) > previous_count
-                )
-            except Exception:
-                # Botão não trouxe partidas novas: considera esgotado
+            if not grew:
+                # Nenhuma das tentativas trouxe partidas novas: considera esgotado
                 break
 
             new_count = len(self.driver.find_elements(
