@@ -120,28 +120,24 @@ class EHFScraperSelenium:
         conn.close()
 
     def _click_load_more_until_exhausted(self, max_clicks=50):
-        """Clica repetidamente no botão 'carregar mais'/'load more' até ele
-        desaparecer ou parar de trazer partidas novas (com limite de segurança)."""
-        # Site usa <button class="load-more-matches">Load Previous Matches</button>.
-        # Casa pela classe (principal) e, como fallback, por variações de texto.
-        load_more_xpath = (
-            "//*[contains(concat(' ', normalize-space(@class), ' '), ' load-more-matches ')] | "
+        """Clica repetidamente no botão 'Load Previous Matches' até ele
+        desaparecer ou parar de trazer partidas novas (com limite de segurança).
+
+        IMPORTANTE: o site tem DOIS botões com a mesma classe
+        'load-more-matches' - "LOAD FUTURE MATCHES" e "LOAD PREVIOUS
+        MATCHES". Casar so pela classe e ambiguo e pode acabar clicando no
+        de partidas futuras (que nao interessam - ja sao filtradas por
+        data). Por isso o xpath exige o texto "previous"/"anterior", nunca
+        so a classe."""
+        load_previous_xpath = (
             "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'load more') or "
+            "'abcdefghijklmnopqrstuvwxyz'), 'previous') or "
             "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'load previous') or "
-            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'carregar mais') or "
-            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'ver mais')] | "
+            "'abcdefghijklmnopqrstuvwxyz'), 'anterior')] | "
             "//a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'load more') or "
+            "'abcdefghijklmnopqrstuvwxyz'), 'previous') or "
             "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'load previous') or "
-            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'carregar mais') or "
-            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'ver mais')]"
+            "'abcdefghijklmnopqrstuvwxyz'), 'anterior')]"
         )
 
         previous_count = len(self.driver.find_elements(
@@ -149,7 +145,7 @@ class EHFScraperSelenium:
         clicks = 0
 
         while clicks < max_clicks:
-            buttons = self.driver.find_elements(By.XPATH, load_more_xpath)
+            buttons = self.driver.find_elements(By.XPATH, load_previous_xpath)
             visible_buttons = [b for b in buttons if b.is_displayed()]
 
             if not visible_buttons:
