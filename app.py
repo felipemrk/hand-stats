@@ -162,6 +162,45 @@ def teams():
     return jsonify(times)
 
 
+@app.route('/api/team-history', methods=['GET'])
+def team_history():
+    """Retorna as partidas de um time (data, adversario, placar, casa/fora)"""
+    team = request.args.get('team', '').strip()
+
+    if not team:
+        return jsonify({'erro': 'Informe o parametro team'}), 400
+
+    conn = sqlite3.connect('jogadores.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT home_team, away_team, home_score, away_score, match_date
+        FROM matches
+        WHERE home_team = ? OR away_team = ?
+        ORDER BY match_date DESC
+    ''', (team, team))
+    resultados = cursor.fetchall()
+    conn.close()
+
+    partidas = []
+    for r in resultados:
+        mandante = r['home_team'] == team
+        adversario = r['away_team'] if mandante else r['home_team']
+        placar_time = r['home_score'] if mandante else r['away_score']
+        placar_adversario = r['away_score'] if mandante else r['home_score']
+
+        partidas.append({
+            'match_date': r['match_date'],
+            'adversario': adversario,
+            'placar_time': placar_time,
+            'placar_adversario': placar_adversario,
+            'mandante': mandante
+        })
+
+    return jsonify(partidas)
+
+
 if __name__ == '__main__':
     if not os.path.exists('jogadores.db'):
         import database
