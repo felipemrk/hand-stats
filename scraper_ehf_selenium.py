@@ -15,12 +15,37 @@ import tempfile
 import shutil
 import re
 import json
+import argparse
 from datetime import datetime
 from urllib.parse import unquote
+import database
+
+
+def build_default_base_url(gender, competition, season):
+    """Deriva a URL base de partidas para competicoes conhecidas do site da
+    EHF. Retorna None se a competicao nao for reconhecida (nesse caso o
+    chamador deve passar --base-url explicitamente)."""
+    if competition == 'EHF Champions League':
+        season_slug = season.replace('/', '-')
+        return f"https://ehfcl.eurohandball.com/{gender}/{season_slug}/matches/"
+    return None
 
 
 class EHFScraperSelenium:
-    def __init__(self):
+    def __init__(self, gender='men', competition='EHF Champions League',
+                 season='2026/27', base_url=None):
+        self.gender = gender
+        self.competition = competition
+        self.season = season
+        self.base_url = base_url or build_default_base_url(
+            gender, competition, season)
+
+        if not self.base_url:
+            raise ValueError(
+                f"Nao ha URL padrao para a competicao '{competition}'. "
+                "Passe base_url explicitamente."
+            )
+
         self.db_name = 'jogadores.db'
         self.download_dir = tempfile.mkdtemp()
 
@@ -40,6 +65,7 @@ class EHFScraperSelenium:
 
         self._ensure_columns()
         self._ensure_match_tables()
+        database.migrate_multi_competition_schema()
 
     def _ensure_columns(self):
         conn = sqlite3.connect(self.db_name)
@@ -94,28 +120,24 @@ class EHFScraperSelenium:
         conn.close()
 
     def _click_load_more_until_exhausted(self, max_clicks=50):
-        """Clica repetidamente no botão 'carregar mais'/'load more' até ele
-        desaparecer ou parar de trazer partidas novas (com limite de segurança)."""
-        # Site usa <button class="load-more-matches">Load Previous Matches</button>.
-        # Casa pela classe (principal) e, como fallback, por variações de texto.
-        load_more_xpath = (
-            "//*[contains(concat(' ', normalize-space(@class), ' '), ' load-more-matches ')] | "
+        """Clica repetidamente no botão 'Load Previous Matches' até ele
+        desaparecer ou parar de trazer partidas novas (com limite de segurança).
+
+        IMPORTANTE: o site tem DOIS botões com a mesma classe
+        'load-more-matches' - "LOAD FUTURE MATCHES" e "LOAD PREVIOUS
+        MATCHES". Casar so pela classe e ambiguo e pode acabar clicando no
+        de partidas futuras (que nao interessam - ja sao filtradas por
+        data). Por isso o xpath exige o texto "previous"/"anterior", nunca
+        so a classe."""
+        load_previous_xpath = (
             "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'load more') or "
+            "'abcdefghijklmnopqrstuvwxyz'), 'previous') or "
             "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'load previous') or "
-            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'carregar mais') or "
-            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'ver mais')] | "
+            "'abcdefghijklmnopqrstuvwxyz'), 'anterior')] | "
             "//a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'load more') or "
+            "'abcdefghijklmnopqrstuvwxyz'), 'previous') or "
             "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'load previous') or "
-            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'carregar mais') or "
-            "contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
-            "'abcdefghijklmnopqrstuvwxyz'), 'ver mais')]"
+            "'abcdefghijklmnopqrstuvwxyz'), 'anterior')]"
         )
 
         previous_count = len(self.driver.find_elements(
@@ -123,30 +145,45 @@ class EHFScraperSelenium:
         clicks = 0
 
         while clicks < max_clicks:
-            buttons = self.driver.find_elements(By.XPATH, load_more_xpath)
+            buttons = self.driver.find_elements(By.XPATH, load_previous_xpath)
             visible_buttons = [b for b in buttons if b.is_displayed()]
 
             if not visible_buttons:
                 break
 
             button = visible_buttons[0]
-            try:
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView({block: 'center'});", button)
-                # Click via JS: evita falha por elementos sobrepostos (ex: banners)
-                self.driver.execute_script("arguments[0].click();", button)
-            except Exception:
-                break
+
+            # Ate 2 tentativas de clique: se o app Vue ainda nao tiver
+            # terminado de anexar o handler do botao no momento do clique
+            # (condicao de corrida observada em execucoes reais mais lentas
+            # que o ambiente de teste), o primeiro clique pode nao surtir
+            # efeito - uma segunda tentativa resolve sem custo extra quando
+            # o primeiro clique ja funcionou (o loop externo so chega aqui
+            # de novo se ainda houver mais partidas pra carregar).
+            grew = False
+            for attempt in range(2):
+                try:
+                    self.driver.execute_script(
+                        "arguments[0].scrollIntoView({block: 'center'});", button)
+                    # Click via JS: evita falha por elementos sobrepostos (ex: banners)
+                    self.driver.execute_script("arguments[0].click();", button)
+                except Exception:
+                    break
+
+                try:
+                    WebDriverWait(self.driver, 10).until(
+                        lambda d: len(d.find_elements(
+                            By.CLASS_NAME, "table-row--results")) > previous_count
+                    )
+                    grew = True
+                    break
+                except Exception:
+                    continue  # tenta de novo (attempt 1) antes de desistir
 
             clicks += 1
 
-            try:
-                WebDriverWait(self.driver, 10).until(
-                    lambda d: len(d.find_elements(
-                        By.CLASS_NAME, "table-row--results")) > previous_count
-                )
-            except Exception:
-                # Botão não trouxe partidas novas: considera esgotado
+            if not grew:
+                # Nenhuma das tentativas trouxe partidas novas: considera esgotado
                 break
 
             new_count = len(self.driver.find_elements(
@@ -160,7 +197,7 @@ class EHFScraperSelenium:
 
     def get_matches_urls(self):
         print("🔍 Carregando página de partidas...\n")
-        url = "https://ehfcl.eurohandball.com/men/2026-27/matches/"
+        url = self.base_url
         self.driver.get(url)
         print("   ⏳ Esperando dados carregar...")
         try:
@@ -178,16 +215,46 @@ class EHFScraperSelenium:
         matches = []
         match_links = soup.find_all('a', class_='table-row table-row--results')
         print(f"   ✅ {len(match_links)} links encontrados\n")
+
+        skipped_future = 0
         for link in match_links:
             href = link.get('href')
-            if href:
-                if href.startswith('http'):
-                    full_url = href
-                else:
-                    full_url = 'https://www.eurohandball.com' + href
-                matches.append(full_url)
+            if not href:
+                continue
+
+            if self._is_future_match(link):
+                skipped_future += 1
+                continue
+
+            if href.startswith('http'):
+                full_url = href
+            else:
+                full_url = 'https://www.eurohandball.com' + href
+            matches.append(full_url)
+
+        if skipped_future:
+            print(f"   ⏭️ {skipped_future} partidas futuras (ainda nao jogadas) ignoradas\n")
         print(f"✅ Total: {len(matches)} partidas\n")
         return matches
+
+    def _is_future_match(self, link):
+        """Verifica pela data exibida no card da partida (ex: 'Thu Sep 17,
+        2026') se ela ainda nao aconteceu, para nao gastar tempo abrindo a
+        pagina e procurando um PDF de estatisticas que ainda nao existe.
+        Em caso de duvida (data ausente ou em formato inesperado), assume
+        que a partida ja aconteceu para nao arriscar perder dados."""
+        date_span = link.find('span', class_='date')
+        if not date_span:
+            return False
+
+        date_text = date_span.get_text(strip=True)
+
+        try:
+            match_date = datetime.strptime(date_text, '%a %b %d, %Y').date()
+        except ValueError:
+            return False
+
+        return match_date >= datetime.now().date()
 
     def parse_player_row(self, row):
         """Extrai nome, gols, tentativas e 7m de uma linha"""
@@ -396,7 +463,8 @@ class EHFScraperSelenium:
             print(f"   ❌ Erro: {str(e)}")
             return [], home_team, away_team, match_date, home_score, away_score
 
-    def update_database(self, all_players_data):
+    def update_database(self, all_players_data, gender='men',
+                         competition='EHF Champions League', season='2026/27'):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
 
@@ -429,19 +497,26 @@ class EHFScraperSelenium:
                 if team and team != 'Unknown':
                     players_dict[key]['team'] = team
 
-        cursor.execute('DELETE FROM players')
+        cursor.execute('''
+            DELETE FROM players WHERE gender = ? AND competition = ? AND season = ?
+        ''', (gender, competition, season))
 
         for player_key, player_info in players_dict.items():
             cursor.execute('''
-                INSERT INTO players (name, team, games, goals, attempts, seven_meter)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO players
+                    (name, team, games, goals, attempts, seven_meter,
+                     gender, competition, season)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 player_info['name'],
                 player_info['team'],
                 player_info['games'],
                 player_info['goals'],
                 player_info['attempts'],
-                player_info['seven_meter']
+                player_info['seven_meter'],
+                gender,
+                competition,
+                season
             ))
 
         conn.commit()
@@ -449,7 +524,8 @@ class EHFScraperSelenium:
         print(f"\n✅ {len(players_dict)} jogadores no banco\n")
 
     def save_match_and_stats(self, match_url, home_team, away_team,
-                              home_score, away_score, match_date, players):
+                              home_score, away_score, match_date, players,
+                              gender='men', competition='EHF Champions League'):
         """Salva a partida em 'matches' e as stats dos jogadores em
         'player_match_stats'. Idempotente: reexecutar o scraper atualiza a
         partida existente (mesma match_url) em vez de duplicar."""
@@ -457,13 +533,18 @@ class EHFScraperSelenium:
         cursor = conn.cursor()
 
         cursor.execute('''
-            INSERT INTO matches (home_team, away_team, home_score, away_score, match_date, match_url)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO matches
+                (home_team, away_team, home_score, away_score, match_date,
+                 match_url, gender, competition)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(match_url) DO UPDATE SET
                 home_score = excluded.home_score,
                 away_score = excluded.away_score,
-                match_date = excluded.match_date
-        ''', (home_team, away_team, home_score, away_score, match_date, match_url))
+                match_date = excluded.match_date,
+                gender = excluded.gender,
+                competition = excluded.competition
+        ''', (home_team, away_team, home_score, away_score, match_date,
+              match_url, gender, competition))
 
         cursor.execute('SELECT id FROM matches WHERE match_url = ?', (match_url,))
         row = cursor.fetchone()
@@ -477,15 +558,19 @@ class EHFScraperSelenium:
                 continue
 
             cursor.execute('''
-                INSERT INTO player_match_stats (player_name, match_id, team, goals, attempts, seven_meter)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO player_match_stats
+                    (player_name, match_id, team, goals, attempts, seven_meter,
+                     gender, competition)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 name,
                 match_id,
                 player.get('team', 'Unknown'),
                 player.get('goals', 0),
                 player.get('attempts', 0),
-                player.get('seven_meter', 0)
+                player.get('seven_meter', 0),
+                gender,
+                competition
             ))
 
         conn.commit()
@@ -493,7 +578,7 @@ class EHFScraperSelenium:
 
     def run(self):
         print("\n" + "="*60)
-        print("🏑 SCRAPER EHF CHAMPIONS LEAGUE 2026/27")
+        print(f"🏑 SCRAPER {self.competition.upper()} {self.season} ({self.gender.upper()})")
         print("="*60 + "\n")
 
         try:
@@ -515,13 +600,16 @@ class EHFScraperSelenium:
                     if players:
                         self.save_match_and_stats(
                             match_url, home, away, home_score, away_score,
-                            match_date, players)
+                            match_date, players,
+                            gender=self.gender, competition=self.competition)
                 except Exception as e:
                     print(f"   ❌ Erro nesta partida: {str(e)}")
                 time.sleep(1)
 
             if all_players_data:
-                self.update_database(all_players_data)
+                self.update_database(
+                    all_players_data, gender=self.gender,
+                    competition=self.competition, season=self.season)
                 print("="*60)
                 print("✅ SCRAPING CONCLUÍDO!")
                 print("="*60 + "\n")
@@ -535,6 +623,31 @@ class EHFScraperSelenium:
             shutil.rmtree(self.download_dir, ignore_errors=True)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Scraper de estatisticas de jogadores da EHF')
+    parser.add_argument(
+        '--gender', choices=['men', 'women'], default='men',
+        help="Naipe da competicao (padrao: men)")
+    parser.add_argument(
+        '--competition', default='EHF Champions League',
+        help="Nome da competicao (padrao: 'EHF Champions League')")
+    parser.add_argument(
+        '--season', default='2026/27',
+        help="Temporada, formato 'AAAA/AA' (padrao: '2026/27')")
+    parser.add_argument(
+        '--base-url', default=None,
+        help="URL base de partidas, necessaria para competicoes sem URL "
+             "padrao conhecida")
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    scraper = EHFScraperSelenium()
+    args = parse_args()
+    scraper = EHFScraperSelenium(
+        gender=args.gender,
+        competition=args.competition,
+        season=args.season,
+        base_url=args.base_url
+    )
     scraper.run()
