@@ -346,6 +346,48 @@
         color: #999;
       }
 
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .history-table th,
+      .history-table td {
+        text-align: left;
+        padding: 12px 15px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .history-table th {
+        color: #999;
+        font-size: 12px;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      .history-table td {
+        color: #333;
+        font-size: 14px;
+      }
+
+      .history-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .history-badge--home {
+        background: #e0e7ff;
+        color: #667eea;
+      }
+
+      .history-badge--away {
+        background: #f0e0ff;
+        color: #764ba2;
+      }
+
       .team-filter-box {
         margin-bottom: 15px;
       }
@@ -491,9 +533,27 @@
 
         <!-- Aba Histórico de Time -->
         <div id="historico" class="tab-content">
-          <div class="empty-state">
-            <p>📊 Recurso em desenvolvimento</p>
+          <div class="team-filter-box">
+            <select id="historyTeamFilter" onchange="carregarHistoricoTime()">
+              <option value="">Escolha um time</option>
+            </select>
           </div>
+
+          <div class="empty-state" id="historyEmptyState">
+            <p>📊 Escolha um time para ver o histórico de partidas</p>
+          </div>
+
+          <table class="history-table" id="historyTable" style="display: none">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Adversário</th>
+                <th>Placar</th>
+                <th>Casa/Fora</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -523,11 +583,17 @@
           .then((response) => response.json())
           .then((times) => {
             const teamFilter = document.getElementById("teamFilter");
+            const historyTeamFilter =
+              document.getElementById("historyTeamFilter");
+
             times.forEach((time) => {
               const option = document.createElement("option");
               option.value = time;
               option.textContent = time;
               teamFilter.appendChild(option);
+
+              const historyOption = option.cloneNode(true);
+              historyTeamFilter.appendChild(historyOption);
             });
           });
       }
@@ -535,6 +601,58 @@
       function filtrarPorTime() {
         const time = document.getElementById("teamFilter").value;
         carregarTodos(time);
+      }
+
+      function carregarHistoricoTime() {
+        const time = document.getElementById("historyTeamFilter").value;
+        const emptyState = document.getElementById("historyEmptyState");
+        const table = document.getElementById("historyTable");
+        const tableBody = document.getElementById("historyTableBody");
+
+        if (!time) {
+          emptyState.querySelector("p").textContent =
+            "📊 Escolha um time para ver o histórico de partidas";
+          emptyState.style.display = "block";
+          table.style.display = "none";
+          return;
+        }
+
+        fetch(`/api/team-history?team=${encodeURIComponent(time)}`)
+          .then((response) => response.json())
+          .then((partidas) => {
+            if (!partidas.length) {
+              emptyState.querySelector("p").textContent =
+                "📊 Nenhuma partida encontrada para este time ainda";
+              emptyState.style.display = "block";
+              table.style.display = "none";
+              return;
+            }
+
+            tableBody.innerHTML = partidas
+              .map((partida) => {
+                const placar =
+                  partida.placar_time !== null &&
+                  partida.placar_adversario !== null
+                    ? `${partida.placar_time} - ${partida.placar_adversario}`
+                    : "-";
+                const badge = partida.mandante
+                  ? '<span class="history-badge history-badge--home">CASA</span>'
+                  : '<span class="history-badge history-badge--away">FORA</span>';
+
+                return `
+                  <tr>
+                    <td>${partida.match_date || "-"}</td>
+                    <td>${partida.adversario}</td>
+                    <td>${placar}</td>
+                    <td>${badge}</td>
+                  </tr>
+                `;
+              })
+              .join("");
+
+            emptyState.style.display = "none";
+            table.style.display = "table";
+          });
       }
 
       function buscar() {
