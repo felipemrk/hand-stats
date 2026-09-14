@@ -230,12 +230,40 @@ class EHFScraperSelenium:
                 full_url = href
             else:
                 full_url = 'https://www.eurohandball.com' + href
-            matches.append(full_url)
+
+            # Nomes dos times COM espaco ja vem prontos na propria listagem
+            # (.team-block--first/second .name). Esses seletores nao
+            # existem na pagina individual da partida - so aqui.
+            home_team = self._extract_team_name_from_link(
+                link, 'team-block--first')
+            away_team = self._extract_team_name_from_link(
+                link, 'team-block--second')
+
+            matches.append({
+                'url': full_url,
+                'home_team': home_team,
+                'away_team': away_team,
+            })
 
         if skipped_future:
             print(f"   ⏭️ {skipped_future} partidas futuras (ainda nao jogadas) ignoradas\n")
         print(f"✅ Total: {len(matches)} partidas\n")
         return matches
+
+    def _extract_team_name_from_link(self, link, block_class):
+        """Extrai o nome do time (com espacos) do card da partida na
+        pagina de listagem. Retorna None se nao encontrar - quem chama
+        deve cair no fallback de get_team_names()."""
+        block = link.find('div', class_=block_class)
+        if not block:
+            return None
+
+        name_span = block.find('span', class_='name')
+        if not name_span:
+            return None
+
+        name = name_span.get_text(strip=True)
+        return name or None
 
     def _is_future_match(self, link):
         """Verifica pela data exibida no card da partida (ex: 'Thu Sep 17,
@@ -414,11 +442,20 @@ class EHFScraperSelenium:
 
         return match_date, home_score, away_score
 
-    def extract_player_stats_from_match(self, match_url):
+    def extract_player_stats_from_match(self, match_url, home_team=None, away_team=None):
         self.driver.get(match_url)
         time.sleep(2)
 
-        home_team, away_team = self.get_team_names(match_url)
+        # Nomes ja vieram prontos (com espaco) da pagina de listagem. So
+        # cai no fallback (pagina individual / slug da URL) se por algum
+        # motivo nao vieram - a pagina individual nao tem os seletores
+        # .team-block--first/second, entao isso so deve acontecer se a
+        # listagem tambem mudar de estrutura.
+        if not home_team or not away_team:
+            fallback_home, fallback_away = self.get_team_names(match_url)
+            home_team = home_team or fallback_home
+            away_team = away_team or fallback_away
+
         match_date, home_score, away_score = self.get_match_date_and_score()
 
         print(f"   🏆 {home_team} vs {away_team}")
@@ -590,11 +627,15 @@ class EHFScraperSelenium:
 
             all_players_data = []
 
-            for idx, match_url in enumerate(match_urls, 1):
+            for idx, match_info in enumerate(match_urls, 1):
+                match_url = match_info['url']
                 print(f"[{idx}/{len(match_urls)}]")
                 try:
                     players, home, away, match_date, home_score, away_score = \
-                        self.extract_player_stats_from_match(match_url)
+                        self.extract_player_stats_from_match(
+                            match_url,
+                            home_team=match_info.get('home_team'),
+                            away_team=match_info.get('away_team'))
                     all_players_data.extend(players)
 
                     if players:
