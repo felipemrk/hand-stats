@@ -191,6 +191,25 @@ def autocomplete():
     return jsonify(nomes)
 
 
+@app.route('/api/competitions', methods=['GET'])
+def competitions():
+    """Retorna as competicoes cadastradas para um naipe"""
+    gender = request.args.get('gender', '').strip() or DEFAULT_GENDER
+
+    conn = sqlite3.connect('jogadores.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT DISTINCT competition FROM players
+        WHERE competition IS NOT NULL AND competition != '' AND gender = ?
+        ORDER BY competition
+    ''', (gender,))
+    result = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    return jsonify(result)
+
+
 @app.route('/api/teams', methods=['GET'])
 def teams():
     """Retorna a lista de times unicos cadastrados"""

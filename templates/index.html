@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EHF Champions League 2026/27 - Player Database</title>
+    <title>Handball Stats Database</title>
     <style>
       * {
         margin: 0;
@@ -509,18 +509,19 @@
   <body>
     <div class="container">
       <div class="header">
-        <h1>🏑 EHF Champions League</h1>
-        <p id="headerSubtitle">2026/27 - Masculino</p>
+        <h1>🏑 Handball Stats Database</h1>
+        <p id="headerSubtitle">EHF Champions League 2026/27 - Masculino</p>
 
         <div class="context-selector">
-          <select id="genderSelect" onchange="mudarContexto()">
+          <select id="genderSelect" onchange="onGenderChange()">
             <option value="men">Masculino</option>
             <option value="women">Feminino</option>
           </select>
 
-          <select id="competitionSelect" onchange="mudarContexto()">
-            <option value="EHF Champions League">EHF Champions League</option>
-          </select>
+          <select
+            id="competitionSelect"
+            onchange="onCompetitionChange()"
+          ></select>
         </div>
       </div>
 
@@ -680,14 +681,42 @@
       }
 
       function atualizarCabecalho() {
-        const { gender } = getGenderCompetitionParams();
+        const { gender, competition } = getGenderCompetitionParams();
         const naipe = gender === "women" ? "Feminino" : "Masculino";
+        const nomeCompeticao = competition || "Nenhuma competição";
         document.getElementById("headerSubtitle").textContent =
-          `2026/27 - ${naipe}`;
+          `${nomeCompeticao} 2026/27 - ${naipe}`;
 
         const competitionSelect = document.getElementById("competitionSelect");
         competitionSelect.dataset.singleOption =
           competitionSelect.options.length <= 1 ? "true" : "false";
+      }
+
+      function carregarCompeticoes() {
+        const gender = document.getElementById("genderSelect").value;
+
+        return fetch(`/api/competitions?gender=${encodeURIComponent(gender)}`)
+          .then((response) => response.json())
+          .then((competicoes) => {
+            const select = document.getElementById("competitionSelect");
+            const valorAnterior = select.value;
+
+            select.innerHTML = "";
+            competicoes.forEach((competicao) => {
+              const option = document.createElement("option");
+              option.value = competicao;
+              option.textContent = competicao;
+              select.appendChild(option);
+            });
+
+            // Mantem a competicao selecionada se ela ainda existir nesse
+            // naipe, senao cai na primeira disponivel.
+            if (competicoes.includes(valorAnterior)) {
+              select.value = valorAnterior;
+            } else if (competicoes.length) {
+              select.value = competicoes[0];
+            }
+          });
       }
 
       function mudarContexto() {
@@ -712,6 +741,18 @@
         carregarTodos();
       }
 
+      function onGenderChange() {
+        // O naipe mudou: a lista de competicoes disponiveis pode ser
+        // diferente, entao recarrega o dropdown antes de aplicar o resto.
+        carregarCompeticoes().then(() => {
+          mudarContexto();
+        });
+      }
+
+      function onCompetitionChange() {
+        mudarContexto();
+      }
+
       function switchTab(tab) {
         // Remove active de todas as abas
         document.querySelectorAll(".tab-content").forEach((el) => {
@@ -727,9 +768,11 @@
       }
 
       window.onload = function () {
-        atualizarCabecalho();
-        carregarTimes();
-        carregarTodos();
+        carregarCompeticoes().then(() => {
+          atualizarCabecalho();
+          carregarTimes();
+          carregarTodos();
+        });
       };
 
       function carregarTimes() {
