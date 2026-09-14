@@ -157,16 +157,54 @@
         background: #f0f0ff;
       }
 
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        padding: 20px;
+      }
+
+      .modal-overlay.show {
+        display: flex;
+      }
+
       .player-detail {
         background: #f5f5f5;
         padding: 30px;
         border-radius: 8px;
-        margin-bottom: 20px;
-        display: none;
+        position: relative;
+        max-width: 600px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
       }
 
-      .player-detail.show {
-        display: block;
+      .modal-close {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 50%;
+        background: #e0e0e0;
+        color: #333;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.3s;
+      }
+
+      .modal-close:hover {
+        background: #d32f2f;
+        color: white;
       }
 
       .player-header {
@@ -377,50 +415,63 @@
           <div class="loading" id="loading">🔄 Buscando...</div>
           <div class="error" id="error"></div>
 
-          <div class="player-detail" id="playerDetail">
-            <div class="player-header">
-              <div class="player-icon">⚽</div>
-              <div class="player-info">
-                <h2 id="playerName"></h2>
-                <p id="playerTeam"></p>
+          <div
+            class="modal-overlay"
+            id="playerModalOverlay"
+            onclick="fecharModalSeClicarFora(event)"
+          >
+            <div class="player-detail" id="playerDetail">
+              <button
+                class="modal-close"
+                onclick="fecharModal()"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
+              <div class="player-header">
+                <div class="player-icon">⚽</div>
+                <div class="player-info">
+                  <h2 id="playerName"></h2>
+                  <p id="playerTeam"></p>
+                </div>
               </div>
-            </div>
 
-            <div class="stats-grid">
-              <div class="stat-box">
-                <div class="stat-label">Total Match</div>
-                <div class="stat-value" id="playerGames">0</div>
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <div class="stat-label">Total Match</div>
+                  <div class="stat-value" id="playerGames">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Med/Gols</div>
+                  <div class="stat-value" id="playerMediaGols">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Med/Gols/7M</div>
+                  <div class="stat-value" id="playerMedia7m">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Med/Tentativas</div>
+                  <div class="stat-value" id="playerMediaTentativas">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Med/Converting</div>
+                  <div class="stat-value" id="playerTaxaConversao">0%</div>
+                </div>
               </div>
-              <div class="stat-box">
-                <div class="stat-label">Med/Gols</div>
-                <div class="stat-value" id="playerMediaGols">0</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-label">Med/Gols/7M</div>
-                <div class="stat-value" id="playerMedia7m">0</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-label">Med/Tentativas</div>
-                <div class="stat-value" id="playerMediaTentativas">0</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-label">Med/Converting</div>
-                <div class="stat-value" id="playerTaxaConversao">0%</div>
-              </div>
-            </div>
 
-            <div class="stats-grid">
-              <div class="stat-box">
-                <div class="stat-label">Total Gols</div>
-                <div class="stat-value" id="playerTotalGols">0</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-label">Total 7M</div>
-                <div class="stat-value" id="playerTotal7m">0</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-label">Total Tentativas</div>
-                <div class="stat-value" id="playerTotalTentativas">0</div>
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <div class="stat-label">Total Gols</div>
+                  <div class="stat-value" id="playerTotalGols">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Total 7M</div>
+                  <div class="stat-value" id="playerTotal7m">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Total Tentativas</div>
+                  <div class="stat-value" id="playerTotalTentativas">0</div>
+                </div>
               </div>
             </div>
           </div>
@@ -496,11 +547,10 @@
 
         const loading = document.getElementById("loading");
         const error = document.getElementById("error");
-        const detail = document.getElementById("playerDetail");
 
         loading.classList.add("show");
         error.classList.remove("show");
-        detail.classList.remove("show");
+        fecharModal();
 
         fetch(`/api/search?q=${encodeURIComponent(termo)}`)
           .then((response) => {
@@ -529,13 +579,33 @@
             document.getElementById("playerTotalTentativas").textContent =
               data.attempts;
 
-            detail.classList.add("show");
+            abrirModal();
           })
           .catch((err) => {
             loading.classList.remove("show");
             mostrarErro("Jogador não encontrado");
           });
       }
+
+      function abrirModal() {
+        document.getElementById("playerModalOverlay").classList.add("show");
+      }
+
+      function fecharModal() {
+        document.getElementById("playerModalOverlay").classList.remove("show");
+      }
+
+      function fecharModalSeClicarFora(event) {
+        if (event.target.id === "playerModalOverlay") {
+          fecharModal();
+        }
+      }
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          fecharModal();
+        }
+      });
 
       function carregarTodos(team) {
         const url = team
