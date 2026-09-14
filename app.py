@@ -5,19 +5,30 @@ import os
 
 app = Flask(__name__)
 
+DEFAULT_GENDER = 'men'
+DEFAULT_COMPETITION = 'EHF Champions League'
 
-def buscar_jogador(nome):
-    """Busca um jogador no banco de dados"""
+
+def get_gender_competition(args):
+    """Le gender/competition da querystring, com os defaults atuais
+    (men / EHF Champions League) para nao quebrar quem nao informar."""
+    gender = args.get('gender', '').strip() or DEFAULT_GENDER
+    competition = args.get('competition', '').strip() or DEFAULT_COMPETITION
+    return gender, competition
+
+
+def buscar_jogador(nome, gender, competition):
+    """Busca um jogador no banco de dados, dentro de um naipe/competicao"""
     conn = sqlite3.connect('jogadores.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     cursor.execute('''
-        SELECT name, team, games, goals, attempts, seven_meter 
+        SELECT name, team, games, goals, attempts, seven_meter
         FROM players
-        WHERE LOWER(name) LIKE LOWER(?)
+        WHERE LOWER(name) LIKE LOWER(?) AND gender = ? AND competition = ?
         LIMIT 1
-    ''', (f'%{nome}%',))
+    ''', (f'%{nome}%', gender, competition))
 
     resultado = cursor.fetchone()
     conn.close()
@@ -59,11 +70,12 @@ def index():
 def search():
     """API de busca"""
     nome = request.args.get('q', '').strip()
+    gender, competition = get_gender_competition(request.args)
 
     if not nome or len(nome) < 2:
         return jsonify({'erro': 'Digite pelo menos 2 caracteres'}), 400
 
-    jogador = buscar_jogador(nome)
+    jogador = buscar_jogador(nome, gender, competition)
 
     if jogador:
         return jsonify(jogador)
@@ -79,6 +91,7 @@ def todos():
     team = request.args.get('team', '').strip()
     data_inicio = request.args.get('data_inicio', '').strip()
     data_fim = request.args.get('data_fim', '').strip()
+    gender, competition = get_gender_competition(request.args)
 
     conn = sqlite3.connect('jogadores.db')
     conn.row_factory = sqlite3.Row
@@ -94,9 +107,9 @@ def todos():
                    COALESCE(SUM(pms.seven_meter), 0) AS seven_meter
             FROM player_match_stats pms
             JOIN matches m ON m.id = pms.match_id
-            WHERE 1=1
+            WHERE pms.gender = ? AND pms.competition = ?
         '''
-        params = []
+        params = [gender, competition]
 
         if data_inicio:
             query += ' AND m.match_date >= ?'
@@ -115,15 +128,16 @@ def todos():
         cursor.execute('''
             SELECT name, team, games, goals, attempts, seven_meter
             FROM players
-            WHERE team = ?
+            WHERE team = ? AND gender = ? AND competition = ?
             ORDER BY goals DESC
-        ''', (team,))
+        ''', (team, gender, competition))
     else:
         cursor.execute('''
             SELECT name, team, games, goals, attempts, seven_meter
             FROM players
+            WHERE gender = ? AND competition = ?
             ORDER BY goals DESC
-        ''')
+        ''', (gender, competition))
     resultados = cursor.fetchall()
     conn.close()
 
@@ -157,6 +171,7 @@ def todos():
 def autocomplete():
     """Retorna sugestoes de nomes de jogadores para autocomplete"""
     termo = request.args.get('q', '').strip()
+    gender, competition = get_gender_competition(request.args)
 
     if len(termo) < 2:
         return jsonify([])
@@ -166,10 +181,10 @@ def autocomplete():
 
     cursor.execute('''
         SELECT name FROM players
-        WHERE LOWER(name) LIKE LOWER(?)
+        WHERE LOWER(name) LIKE LOWER(?) AND gender = ? AND competition = ?
         ORDER BY name
         LIMIT 8
-    ''', (f'%{termo}%',))
+    ''', (f'%{termo}%', gender, competition))
     nomes = [row[0] for row in cursor.fetchall()]
     conn.close()
 
@@ -179,14 +194,16 @@ def autocomplete():
 @app.route('/api/teams', methods=['GET'])
 def teams():
     """Retorna a lista de times unicos cadastrados"""
+    gender, competition = get_gender_competition(request.args)
+
     conn = sqlite3.connect('jogadores.db')
     cursor = conn.cursor()
 
     cursor.execute('''
         SELECT DISTINCT team FROM players
-        WHERE team IS NOT NULL AND team != ''
+        WHERE team IS NOT NULL AND team != '' AND gender = ? AND competition = ?
         ORDER BY team
-    ''')
+    ''', (gender, competition))
     times = [row[0] for row in cursor.fetchall()]
     conn.close()
 
@@ -197,6 +214,7 @@ def teams():
 def team_history():
     """Retorna as partidas de um time (data, adversario, placar, casa/fora)"""
     team = request.args.get('team', '').strip()
+    gender, competition = get_gender_competition(request.args)
 
     if not team:
         return jsonify({'erro': 'Informe o parametro team'}), 400
@@ -208,9 +226,9 @@ def team_history():
     cursor.execute('''
         SELECT home_team, away_team, home_score, away_score, match_date
         FROM matches
-        WHERE home_team = ? OR away_team = ?
+        WHERE (home_team = ? OR away_team = ?) AND gender = ? AND competition = ?
         ORDER BY match_date DESC
-    ''', (team, team))
+    ''', (team, team, gender, competition))
     resultados = cursor.fetchall()
     conn.close()
 
