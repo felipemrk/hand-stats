@@ -45,6 +45,34 @@
         opacity: 0.9;
       }
 
+      .context-selector {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .context-selector select {
+        padding: 8px 14px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: white;
+        background: rgba(255, 255, 255, 0.15);
+        outline: none;
+        cursor: pointer;
+      }
+
+      .context-selector select option {
+        color: #333;
+        background: white;
+      }
+
+      .context-selector select[data-single-option="true"] {
+        display: none;
+      }
+
       .tabs {
         display: flex;
         border-bottom: 2px solid #e0e0e0;
@@ -482,7 +510,18 @@
     <div class="container">
       <div class="header">
         <h1>🏑 EHF Champions League</h1>
-        <p>2026/27 - Player Database</p>
+        <p id="headerSubtitle">2026/27 - Masculino</p>
+
+        <div class="context-selector">
+          <select id="genderSelect" onchange="mudarContexto()">
+            <option value="men">Masculino</option>
+            <option value="women">Feminino</option>
+          </select>
+
+          <select id="competitionSelect" onchange="mudarContexto()">
+            <option value="EHF Champions League">EHF Champions League</option>
+          </select>
+        </div>
       </div>
 
       <div class="tabs">
@@ -633,6 +672,46 @@
     </div>
 
     <script>
+      function getGenderCompetitionParams() {
+        return {
+          gender: document.getElementById("genderSelect").value,
+          competition: document.getElementById("competitionSelect").value,
+        };
+      }
+
+      function atualizarCabecalho() {
+        const { gender } = getGenderCompetitionParams();
+        const naipe = gender === "women" ? "Feminino" : "Masculino";
+        document.getElementById("headerSubtitle").textContent =
+          `2026/27 - ${naipe}`;
+
+        const competitionSelect = document.getElementById("competitionSelect");
+        competitionSelect.dataset.singleOption =
+          competitionSelect.options.length <= 1 ? "true" : "false";
+      }
+
+      function mudarContexto() {
+        atualizarCabecalho();
+
+        // Contexto (naipe/competicao) mudou: times, busca e historico do
+        // contexto anterior nao fazem mais sentido, entao reseta tudo.
+        document.getElementById("searchInput").value = "";
+        esconderAutocomplete();
+        fecharModal();
+        document.getElementById("error").classList.remove("show");
+
+        document.getElementById("teamFilter").innerHTML =
+          '<option value="">Todos os times</option>';
+        document.getElementById("historyTeamFilter").innerHTML =
+          '<option value="">Escolha um time</option>';
+        document.getElementById("dataInicio").value = "";
+        document.getElementById("dataFim").value = "";
+
+        carregarHistoricoTime();
+        carregarTimes();
+        carregarTodos();
+      }
+
       function switchTab(tab) {
         // Remove active de todas as abas
         document.querySelectorAll(".tab-content").forEach((el) => {
@@ -648,12 +727,16 @@
       }
 
       window.onload = function () {
+        atualizarCabecalho();
         carregarTimes();
         carregarTodos();
       };
 
       function carregarTimes() {
-        fetch("/api/teams")
+        const { gender, competition } = getGenderCompetitionParams();
+        const params = new URLSearchParams({ gender, competition });
+
+        fetch(`/api/teams?${params.toString()}`)
           .then((response) => response.json())
           .then((times) => {
             const teamFilter = document.getElementById("teamFilter");
@@ -700,7 +783,10 @@
           return;
         }
 
-        fetch(`/api/team-history?team=${encodeURIComponent(time)}`)
+        const { gender, competition } = getGenderCompetitionParams();
+        const params = new URLSearchParams({ team: time, gender, competition });
+
+        fetch(`/api/team-history?${params.toString()}`)
           .then((response) => response.json())
           .then((partidas) => {
             if (!partidas.length) {
@@ -753,7 +839,10 @@
         error.classList.remove("show");
         fecharModal();
 
-        fetch(`/api/search?q=${encodeURIComponent(termo)}`)
+        const { gender, competition } = getGenderCompetitionParams();
+        const params = new URLSearchParams({ q: termo, gender, competition });
+
+        fetch(`/api/search?${params.toString()}`)
           .then((response) => {
             if (!response.ok) throw new Error("Jogador não encontrado");
             return response.json();
@@ -810,16 +899,14 @@
 
       function carregarTodos(filtros) {
         const { team, dataInicio, dataFim } = filtros || {};
-        const params = new URLSearchParams();
+        const { gender, competition } = getGenderCompetitionParams();
+        const params = new URLSearchParams({ gender, competition });
 
         if (team) params.set("team", team);
         if (dataInicio) params.set("data_inicio", dataInicio);
         if (dataFim) params.set("data_fim", dataFim);
 
-        const queryString = params.toString();
-        const url = queryString ? `/api/todos?${queryString}` : "/api/todos";
-
-        fetch(url)
+        fetch(`/api/todos?${params.toString()}`)
           .then((response) => response.json())
           .then((data) => {
             const playersList = document.getElementById("playersList");
@@ -866,7 +953,10 @@
       }
 
       function buscarSugestoes(termo) {
-        fetch(`/api/autocomplete?q=${encodeURIComponent(termo)}`)
+        const { gender, competition } = getGenderCompetitionParams();
+        const params = new URLSearchParams({ q: termo, gender, competition });
+
+        fetch(`/api/autocomplete?${params.toString()}`)
           .then((response) => response.json())
           .then((nomes) => {
             const autocompleteList =
