@@ -73,16 +73,26 @@ def search():
 
 @app.route('/api/todos', methods=['GET'])
 def todos():
-    """Retorna todos os jogadores"""
+    """Retorna todos os jogadores, opcionalmente filtrados por time"""
+    team = request.args.get('team', '').strip()
+
     conn = sqlite3.connect('jogadores.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute('''
-        SELECT name, team, games, goals, attempts, seven_meter 
-        FROM players 
-        ORDER BY goals DESC
-    ''')
+    if team:
+        cursor.execute('''
+            SELECT name, team, games, goals, attempts, seven_meter
+            FROM players
+            WHERE team = ?
+            ORDER BY goals DESC
+        ''', (team,))
+    else:
+        cursor.execute('''
+            SELECT name, team, games, goals, attempts, seven_meter
+            FROM players
+            ORDER BY goals DESC
+        ''')
     resultados = cursor.fetchall()
     conn.close()
 
@@ -110,6 +120,23 @@ def todos():
         'total': len(jogadores),
         'players': jogadores
     })
+
+
+@app.route('/api/teams', methods=['GET'])
+def teams():
+    """Retorna a lista de times unicos cadastrados"""
+    conn = sqlite3.connect('jogadores.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT DISTINCT team FROM players
+        WHERE team IS NOT NULL AND team != ''
+        ORDER BY team
+    ''')
+    times = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    return jsonify(times)
 
 
 if __name__ == '__main__':

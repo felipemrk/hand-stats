@@ -273,6 +273,25 @@
         color: #999;
       }
 
+      .team-filter-box {
+        margin-bottom: 15px;
+      }
+
+      .team-filter-box select {
+        padding: 10px 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #333;
+        background: white;
+        outline: none;
+        cursor: pointer;
+      }
+
+      .team-filter-box select:focus {
+        border-color: #667eea;
+      }
+
       .players-list-title {
         display: flex;
         justify-content: space-between;
@@ -368,6 +387,12 @@
             </div>
           </div>
 
+          <div class="team-filter-box">
+            <select id="teamFilter" onchange="filtrarPorTime()">
+              <option value="">Todos os times</option>
+            </select>
+          </div>
+
           <h3 class="players-list-title">
             Top Scorers 2026/27
             <span id="playersCount" class="players-count"></span>
@@ -400,8 +425,28 @@
       }
 
       window.onload = function () {
+        carregarTimes();
         carregarTodos();
       };
+
+      function carregarTimes() {
+        fetch("/api/teams")
+          .then((response) => response.json())
+          .then((times) => {
+            const teamFilter = document.getElementById("teamFilter");
+            times.forEach((time) => {
+              const option = document.createElement("option");
+              option.value = time;
+              option.textContent = time;
+              teamFilter.appendChild(option);
+            });
+          });
+      }
+
+      function filtrarPorTime() {
+        const time = document.getElementById("teamFilter").value;
+        carregarTodos(time);
+      }
 
       function buscar() {
         const termo = document.getElementById("searchInput").value.trim();
@@ -454,8 +499,12 @@
           });
       }
 
-      function carregarTodos() {
-        fetch("/api/todos")
+      function carregarTodos(team) {
+        const url = team
+          ? `/api/todos?team=${encodeURIComponent(team)}`
+          : "/api/todos";
+
+        fetch(url)
           .then((response) => response.json())
           .then((data) => {
             const playersList = document.getElementById("playersList");
