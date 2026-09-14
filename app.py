@@ -122,6 +122,29 @@ def todos():
     })
 
 
+@app.route('/api/autocomplete', methods=['GET'])
+def autocomplete():
+    """Retorna sugestoes de nomes de jogadores para autocomplete"""
+    termo = request.args.get('q', '').strip()
+
+    if len(termo) < 2:
+        return jsonify([])
+
+    conn = sqlite3.connect('jogadores.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT name FROM players
+        WHERE LOWER(name) LIKE LOWER(?)
+        ORDER BY name
+        LIMIT 8
+    ''', (f'%{termo}%',))
+    nomes = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    return jsonify(nomes)
+
+
 @app.route('/api/teams', methods=['GET'])
 def teams():
     """Retorna a lista de times unicos cadastrados"""

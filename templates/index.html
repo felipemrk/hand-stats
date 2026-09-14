@@ -92,8 +92,13 @@
         margin-bottom: 30px;
       }
 
-      .search-box input {
+      .search-input-wrapper {
+        position: relative;
         flex: 1;
+      }
+
+      .search-box input {
+        width: 100%;
         padding: 12px;
         border: 2px solid #e0e0e0;
         border-radius: 8px;
@@ -120,6 +125,36 @@
 
       .search-box button:hover {
         background: #764ba2;
+      }
+
+      .autocomplete-list {
+        display: none;
+        position: absolute;
+        top: calc(100% + 5px);
+        left: 0;
+        right: 0;
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        max-height: 220px;
+        overflow-y: auto;
+        z-index: 10;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+      }
+
+      .autocomplete-list.show {
+        display: block;
+      }
+
+      .autocomplete-item {
+        padding: 10px 12px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #333;
+      }
+
+      .autocomplete-item:hover {
+        background: #f0f0ff;
       }
 
       .player-detail {
@@ -327,12 +362,15 @@
         <!-- Aba Jogadores -->
         <div id="jogadores" class="tab-content active">
           <div class="search-box">
-            <input
-              type="text"
-              id="searchInput"
-              placeholder="Escolha o Player"
-              autocomplete="off"
-            />
+            <div class="search-input-wrapper">
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Escolha o Player"
+                autocomplete="off"
+              />
+              <div class="autocomplete-list" id="autocompleteList"></div>
+            </div>
             <button onclick="buscar()">PROCURAR PARTIDAS</button>
           </div>
 
@@ -532,6 +570,7 @@
 
       function selecionarJogador(nome) {
         document.getElementById("searchInput").value = nome;
+        esconderAutocomplete();
         buscar();
       }
 
@@ -541,11 +580,78 @@
         error.classList.add("show");
       }
 
-      document
-        .getElementById("searchInput")
-        .addEventListener("keypress", function (e) {
-          if (e.key === "Enter") buscar();
-        });
+      let autocompleteTimeout = null;
+
+      function esconderAutocomplete() {
+        const autocompleteList = document.getElementById("autocompleteList");
+        autocompleteList.classList.remove("show");
+        autocompleteList.innerHTML = "";
+      }
+
+      function buscarSugestoes(termo) {
+        fetch(`/api/autocomplete?q=${encodeURIComponent(termo)}`)
+          .then((response) => response.json())
+          .then((nomes) => {
+            const autocompleteList =
+              document.getElementById("autocompleteList");
+
+            if (!nomes.length) {
+              esconderAutocomplete();
+              return;
+            }
+
+            autocompleteList.innerHTML = nomes
+              .map(
+                (nome) =>
+                  `<div class="autocomplete-item" onclick="selecionarSugestao('${nome.replace(/'/g, "\\'")}')">${nome}</div>`,
+              )
+              .join("");
+            autocompleteList.classList.add("show");
+          });
+      }
+
+      function selecionarSugestao(nome) {
+        document.getElementById("searchInput").value = nome;
+        esconderAutocomplete();
+        buscar();
+      }
+
+      const searchInputEl = document.getElementById("searchInput");
+
+      searchInputEl.addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+          esconderAutocomplete();
+          buscar();
+        }
+      });
+
+      searchInputEl.addEventListener("input", function () {
+        const termo = this.value.trim();
+
+        clearTimeout(autocompleteTimeout);
+
+        if (termo.length < 2) {
+          esconderAutocomplete();
+          return;
+        }
+
+        autocompleteTimeout = setTimeout(() => {
+          buscarSugestoes(termo);
+        }, 300);
+      });
+
+      searchInputEl.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          esconderAutocomplete();
+        }
+      });
+
+      document.addEventListener("click", function (e) {
+        const wrapper = document.querySelector(".search-input-wrapper");
+        if (!wrapper.contains(e.target)) {
+          esconderAutocomplete();
+        }
+      });
     </script>
   </body>
 </html>
