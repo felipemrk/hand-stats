@@ -346,6 +346,48 @@
         color: #999;
       }
 
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .history-table th,
+      .history-table td {
+        text-align: left;
+        padding: 12px 15px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .history-table th {
+        color: #999;
+        font-size: 12px;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      .history-table td {
+        color: #333;
+        font-size: 14px;
+      }
+
+      .history-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .history-badge--home {
+        background: #e0e7ff;
+        color: #667eea;
+      }
+
+      .history-badge--away {
+        background: #f0e0ff;
+        color: #764ba2;
+      }
+
       .team-filter-box {
         margin-bottom: 15px;
       }
@@ -359,6 +401,62 @@
         background: white;
         outline: none;
         cursor: pointer;
+      }
+
+      .filters-box {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+
+      .filters-box select {
+        padding: 10px 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #333;
+        background: white;
+        outline: none;
+        cursor: pointer;
+      }
+
+      .date-filter-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #666;
+      }
+
+      .date-filter-label input[type="date"] {
+        padding: 8px 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #333;
+        outline: none;
+      }
+
+      .date-filter-label input[type="date"]:focus {
+        border-color: #667eea;
+      }
+
+      .clear-filters-btn {
+        padding: 8px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        background: white;
+        color: #666;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .clear-filters-btn:hover {
+        border-color: #d32f2f;
+        color: #d32f2f;
       }
 
       .team-filter-box select:focus {
@@ -476,10 +574,28 @@
             </div>
           </div>
 
-          <div class="team-filter-box">
-            <select id="teamFilter" onchange="filtrarPorTime()">
+          <div class="filters-box">
+            <select id="teamFilter" onchange="aplicarFiltros()">
               <option value="">Todos os times</option>
             </select>
+
+            <label class="date-filter-label">
+              De
+              <input type="date" id="dataInicio" onchange="aplicarFiltros()" />
+            </label>
+
+            <label class="date-filter-label">
+              Até
+              <input type="date" id="dataFim" onchange="aplicarFiltros()" />
+            </label>
+
+            <button
+              type="button"
+              class="clear-filters-btn"
+              onclick="limparFiltros()"
+            >
+              Limpar
+            </button>
           </div>
 
           <h3 class="players-list-title">
@@ -491,9 +607,27 @@
 
         <!-- Aba Histórico de Time -->
         <div id="historico" class="tab-content">
-          <div class="empty-state">
-            <p>📊 Recurso em desenvolvimento</p>
+          <div class="team-filter-box">
+            <select id="historyTeamFilter" onchange="carregarHistoricoTime()">
+              <option value="">Escolha um time</option>
+            </select>
           </div>
+
+          <div class="empty-state" id="historyEmptyState">
+            <p>📊 Escolha um time para ver o histórico de partidas</p>
+          </div>
+
+          <table class="history-table" id="historyTable" style="display: none">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Adversário</th>
+                <th>Placar</th>
+                <th>Casa/Fora</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -523,18 +657,85 @@
           .then((response) => response.json())
           .then((times) => {
             const teamFilter = document.getElementById("teamFilter");
+            const historyTeamFilter =
+              document.getElementById("historyTeamFilter");
+
             times.forEach((time) => {
               const option = document.createElement("option");
               option.value = time;
               option.textContent = time;
               teamFilter.appendChild(option);
+
+              const historyOption = option.cloneNode(true);
+              historyTeamFilter.appendChild(historyOption);
             });
           });
       }
 
-      function filtrarPorTime() {
-        const time = document.getElementById("teamFilter").value;
-        carregarTodos(time);
+      function aplicarFiltros() {
+        const team = document.getElementById("teamFilter").value;
+        const dataInicio = document.getElementById("dataInicio").value;
+        const dataFim = document.getElementById("dataFim").value;
+        carregarTodos({ team, dataInicio, dataFim });
+      }
+
+      function limparFiltros() {
+        document.getElementById("teamFilter").value = "";
+        document.getElementById("dataInicio").value = "";
+        document.getElementById("dataFim").value = "";
+        carregarTodos();
+      }
+
+      function carregarHistoricoTime() {
+        const time = document.getElementById("historyTeamFilter").value;
+        const emptyState = document.getElementById("historyEmptyState");
+        const table = document.getElementById("historyTable");
+        const tableBody = document.getElementById("historyTableBody");
+
+        if (!time) {
+          emptyState.querySelector("p").textContent =
+            "📊 Escolha um time para ver o histórico de partidas";
+          emptyState.style.display = "block";
+          table.style.display = "none";
+          return;
+        }
+
+        fetch(`/api/team-history?team=${encodeURIComponent(time)}`)
+          .then((response) => response.json())
+          .then((partidas) => {
+            if (!partidas.length) {
+              emptyState.querySelector("p").textContent =
+                "📊 Nenhuma partida encontrada para este time ainda";
+              emptyState.style.display = "block";
+              table.style.display = "none";
+              return;
+            }
+
+            tableBody.innerHTML = partidas
+              .map((partida) => {
+                const placar =
+                  partida.placar_time !== null &&
+                  partida.placar_adversario !== null
+                    ? `${partida.placar_time} - ${partida.placar_adversario}`
+                    : "-";
+                const badge = partida.mandante
+                  ? '<span class="history-badge history-badge--home">CASA</span>'
+                  : '<span class="history-badge history-badge--away">FORA</span>';
+
+                return `
+                  <tr>
+                    <td>${partida.match_date || "-"}</td>
+                    <td>${partida.adversario}</td>
+                    <td>${placar}</td>
+                    <td>${badge}</td>
+                  </tr>
+                `;
+              })
+              .join("");
+
+            emptyState.style.display = "none";
+            table.style.display = "table";
+          });
       }
 
       function buscar() {
@@ -607,10 +808,16 @@
         }
       });
 
-      function carregarTodos(team) {
-        const url = team
-          ? `/api/todos?team=${encodeURIComponent(team)}`
-          : "/api/todos";
+      function carregarTodos(filtros) {
+        const { team, dataInicio, dataFim } = filtros || {};
+        const params = new URLSearchParams();
+
+        if (team) params.set("team", team);
+        if (dataInicio) params.set("data_inicio", dataInicio);
+        if (dataFim) params.set("data_fim", dataFim);
+
+        const queryString = params.toString();
+        const url = queryString ? `/api/todos?${queryString}` : "/api/todos";
 
         fetch(url)
           .then((response) => response.json())
