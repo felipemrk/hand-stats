@@ -17,6 +17,7 @@ import re
 import json
 from datetime import datetime
 from urllib.parse import unquote
+import database
 
 
 class EHFScraperSelenium:
@@ -40,6 +41,7 @@ class EHFScraperSelenium:
 
         self._ensure_columns()
         self._ensure_match_tables()
+        database.migrate_multi_competition_schema()
 
     def _ensure_columns(self):
         conn = sqlite3.connect(self.db_name)
@@ -396,7 +398,8 @@ class EHFScraperSelenium:
             print(f"   ❌ Erro: {str(e)}")
             return [], home_team, away_team, match_date, home_score, away_score
 
-    def update_database(self, all_players_data):
+    def update_database(self, all_players_data, gender='men',
+                         competition='EHF Champions League', season='2026/27'):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
 
@@ -429,19 +432,26 @@ class EHFScraperSelenium:
                 if team and team != 'Unknown':
                     players_dict[key]['team'] = team
 
-        cursor.execute('DELETE FROM players')
+        cursor.execute('''
+            DELETE FROM players WHERE gender = ? AND competition = ? AND season = ?
+        ''', (gender, competition, season))
 
         for player_key, player_info in players_dict.items():
             cursor.execute('''
-                INSERT INTO players (name, team, games, goals, attempts, seven_meter)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO players
+                    (name, team, games, goals, attempts, seven_meter,
+                     gender, competition, season)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 player_info['name'],
                 player_info['team'],
                 player_info['games'],
                 player_info['goals'],
                 player_info['attempts'],
-                player_info['seven_meter']
+                player_info['seven_meter'],
+                gender,
+                competition,
+                season
             ))
 
         conn.commit()
@@ -449,7 +459,8 @@ class EHFScraperSelenium:
         print(f"\n✅ {len(players_dict)} jogadores no banco\n")
 
     def save_match_and_stats(self, match_url, home_team, away_team,
-                              home_score, away_score, match_date, players):
+                              home_score, away_score, match_date, players,
+                              gender='men', competition='EHF Champions League'):
         """Salva a partida em 'matches' e as stats dos jogadores em
         'player_match_stats'. Idempotente: reexecutar o scraper atualiza a
         partida existente (mesma match_url) em vez de duplicar."""
@@ -457,13 +468,18 @@ class EHFScraperSelenium:
         cursor = conn.cursor()
 
         cursor.execute('''
-            INSERT INTO matches (home_team, away_team, home_score, away_score, match_date, match_url)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO matches
+                (home_team, away_team, home_score, away_score, match_date,
+                 match_url, gender, competition)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(match_url) DO UPDATE SET
                 home_score = excluded.home_score,
                 away_score = excluded.away_score,
-                match_date = excluded.match_date
-        ''', (home_team, away_team, home_score, away_score, match_date, match_url))
+                match_date = excluded.match_date,
+                gender = excluded.gender,
+                competition = excluded.competition
+        ''', (home_team, away_team, home_score, away_score, match_date,
+              match_url, gender, competition))
 
         cursor.execute('SELECT id FROM matches WHERE match_url = ?', (match_url,))
         row = cursor.fetchone()
@@ -477,15 +493,19 @@ class EHFScraperSelenium:
                 continue
 
             cursor.execute('''
-                INSERT INTO player_match_stats (player_name, match_id, team, goals, attempts, seven_meter)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO player_match_stats
+                    (player_name, match_id, team, goals, attempts, seven_meter,
+                     gender, competition)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 name,
                 match_id,
                 player.get('team', 'Unknown'),
                 player.get('goals', 0),
                 player.get('attempts', 0),
-                player.get('seven_meter', 0)
+                player.get('seven_meter', 0),
+                gender,
+                competition
             ))
 
         conn.commit()

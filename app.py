@@ -233,9 +233,12 @@ def team_history():
 
 
 if __name__ == '__main__':
+    import database
+
     if not os.path.exists('jogadores.db'):
-        import database
         database.criar_banco()
+
+    database.migrate_multi_competition_schema()
 
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
