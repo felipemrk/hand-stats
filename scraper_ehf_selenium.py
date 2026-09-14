@@ -204,16 +204,46 @@ class EHFScraperSelenium:
         matches = []
         match_links = soup.find_all('a', class_='table-row table-row--results')
         print(f"   ✅ {len(match_links)} links encontrados\n")
+
+        skipped_future = 0
         for link in match_links:
             href = link.get('href')
-            if href:
-                if href.startswith('http'):
-                    full_url = href
-                else:
-                    full_url = 'https://www.eurohandball.com' + href
-                matches.append(full_url)
+            if not href:
+                continue
+
+            if self._is_future_match(link):
+                skipped_future += 1
+                continue
+
+            if href.startswith('http'):
+                full_url = href
+            else:
+                full_url = 'https://www.eurohandball.com' + href
+            matches.append(full_url)
+
+        if skipped_future:
+            print(f"   ⏭️ {skipped_future} partidas futuras (ainda nao jogadas) ignoradas\n")
         print(f"✅ Total: {len(matches)} partidas\n")
         return matches
+
+    def _is_future_match(self, link):
+        """Verifica pela data exibida no card da partida (ex: 'Thu Sep 17,
+        2026') se ela ainda nao aconteceu, para nao gastar tempo abrindo a
+        pagina e procurando um PDF de estatisticas que ainda nao existe.
+        Em caso de duvida (data ausente ou em formato inesperado), assume
+        que a partida ja aconteceu para nao arriscar perder dados."""
+        date_span = link.find('span', class_='date')
+        if not date_span:
+            return False
+
+        date_text = date_span.get_text(strip=True)
+
+        try:
+            match_date = datetime.strptime(date_text, '%a %b %d, %Y').date()
+        except ValueError:
+            return False
+
+        return match_date >= datetime.now().date()
 
     def parse_player_row(self, row):
         """Extrai nome, gols, tentativas e 7m de uma linha"""
