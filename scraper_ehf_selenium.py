@@ -14,6 +14,8 @@ import os
 import tempfile
 import shutil
 import re
+import json
+from datetime import datetime
 from urllib.parse import unquote
 
 
@@ -37,6 +39,7 @@ class EHFScraperSelenium:
         )
 
         self._ensure_columns()
+        self._ensure_match_tables()
 
     def _ensure_columns(self):
         conn = sqlite3.connect(self.db_name)
@@ -50,6 +53,42 @@ class EHFScraperSelenium:
         if 'seven_meter' not in columns:
             cursor.execute(
                 'ALTER TABLE players ADD COLUMN seven_meter INTEGER DEFAULT 0')
+
+        conn.commit()
+        conn.close()
+
+    def _ensure_match_tables(self):
+        """Cria as tabelas de partidas/stats por partida, se ainda não existirem.
+        Tabelas ADICIONAIS: nao substituem nem alteram a tabela "players"."""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS matches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL,
+                home_score INTEGER,
+                away_score INTEGER,
+                match_date TEXT,
+                match_url TEXT UNIQUE,
+                competition TEXT DEFAULT 'EHF Champions League',
+                season TEXT DEFAULT '2026/27'
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS player_match_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_name TEXT NOT NULL,
+                match_id INTEGER NOT NULL,
+                team TEXT,
+                goals INTEGER DEFAULT 0,
+                attempts INTEGER DEFAULT 0,
+                seven_meter INTEGER DEFAULT 0,
+                FOREIGN KEY (match_id) REFERENCES matches(id)
+            )
+        ''')
 
         conn.commit()
         conn.close()
@@ -278,11 +317,42 @@ class EHFScraperSelenium:
 
         return home_team or "Unknown", away_team or "Unknown"
 
+    def get_match_date_and_score(self):
+        """Extrai data (via JSON-LD) e placar (via <title>) da pagina da partida atual.
+        Retorna (match_date, home_score, away_score), com None quando nao encontrado."""
+        match_date = None
+
+        try:
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+            script = soup.find('script', type='application/ld+json')
+            if script:
+                data = json.loads(script.get_text())
+                start_date = data.get('startDate', '')
+                date_part = start_date.split(' ')[0]
+                parsed = datetime.strptime(date_part, '%m/%d/%Y')
+                match_date = parsed.strftime('%Y-%m-%d')
+        except Exception:
+            match_date = None
+
+        home_score = None
+        away_score = None
+
+        try:
+            score_match = re.search(r'(\d+):(\d+)', self.driver.title)
+            if score_match:
+                home_score = int(score_match.group(1))
+                away_score = int(score_match.group(2))
+        except Exception:
+            pass
+
+        return match_date, home_score, away_score
+
     def extract_player_stats_from_match(self, match_url):
         self.driver.get(match_url)
         time.sleep(2)
 
         home_team, away_team = self.get_team_names(match_url)
+        match_date, home_score, away_score = self.get_match_date_and_score()
 
         print(f"   🏆 {home_team} vs {away_team}")
 
@@ -317,14 +387,14 @@ class EHFScraperSelenium:
                 if os.path.exists(pdf_path):
                     os.remove(pdf_path)
 
-                return all_rows, home_team, away_team
+                return all_rows, home_team, away_team, match_date, home_score, away_score
             else:
                 print(f"   ⚠️ PDF não encontrado")
-                return [], home_team, away_team
+                return [], home_team, away_team, match_date, home_score, away_score
 
         except Exception as e:
             print(f"   ❌ Erro: {str(e)}")
-            return [], home_team, away_team
+            return [], home_team, away_team, match_date, home_score, away_score
 
     def update_database(self, all_players_data):
         conn = sqlite3.connect(self.db_name)
@@ -378,6 +448,49 @@ class EHFScraperSelenium:
         conn.close()
         print(f"\n✅ {len(players_dict)} jogadores no banco\n")
 
+    def save_match_and_stats(self, match_url, home_team, away_team,
+                              home_score, away_score, match_date, players):
+        """Salva a partida em 'matches' e as stats dos jogadores em
+        'player_match_stats'. Idempotente: reexecutar o scraper atualiza a
+        partida existente (mesma match_url) em vez de duplicar."""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT INTO matches (home_team, away_team, home_score, away_score, match_date, match_url)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(match_url) DO UPDATE SET
+                home_score = excluded.home_score,
+                away_score = excluded.away_score,
+                match_date = excluded.match_date
+        ''', (home_team, away_team, home_score, away_score, match_date, match_url))
+
+        cursor.execute('SELECT id FROM matches WHERE match_url = ?', (match_url,))
+        row = cursor.fetchone()
+        match_id = row[0]
+
+        cursor.execute('DELETE FROM player_match_stats WHERE match_id = ?', (match_id,))
+
+        for player in players:
+            name = player.get('name', '').strip()
+            if not name or len(name) < 2:
+                continue
+
+            cursor.execute('''
+                INSERT INTO player_match_stats (player_name, match_id, team, goals, attempts, seven_meter)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                name,
+                match_id,
+                player.get('team', 'Unknown'),
+                player.get('goals', 0),
+                player.get('attempts', 0),
+                player.get('seven_meter', 0)
+            ))
+
+        conn.commit()
+        conn.close()
+
     def run(self):
         print("\n" + "="*60)
         print("🏑 SCRAPER EHF CHAMPIONS LEAGUE 2026/27")
@@ -395,9 +508,14 @@ class EHFScraperSelenium:
             for idx, match_url in enumerate(match_urls, 1):
                 print(f"[{idx}/{len(match_urls)}]")
                 try:
-                    players, home, away = self.extract_player_stats_from_match(
-                        match_url)
+                    players, home, away, match_date, home_score, away_score = \
+                        self.extract_player_stats_from_match(match_url)
                     all_players_data.extend(players)
+
+                    if players:
+                        self.save_match_and_stats(
+                            match_url, home, away, home_score, away_score,
+                            match_date, players)
                 except Exception as e:
                     print(f"   ❌ Erro nesta partida: {str(e)}")
                 time.sleep(1)
