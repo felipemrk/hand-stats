@@ -42,8 +42,16 @@ def buscar_jogador(nome, gender, competition):
         # Calcula médias
         media_gols = goals / games if games > 0 else 0
         media_7m = seven_meter / games if games > 0 else 0
-        media_tentativas = attempts / games if games > 0 else 0
-        taxa_conversao = (goals / attempts * 100) if attempts > 0 else 0
+
+        # attempts pode ser NULL quando a fonte de dados nao tem essa
+        # informacao (ex: Kvindeligaen) - nesse caso nao da pra calcular
+        # media/taxa de conversao, entao ficam None (nao 0)
+        if attempts is not None:
+            media_tentativas = round(attempts / games, 2) if games > 0 else 0
+            taxa_conversao = round(goals / attempts * 100, 2) if attempts > 0 else 0
+        else:
+            media_tentativas = None
+            taxa_conversao = None
 
         return {
             'name': resultado['name'],
@@ -54,8 +62,8 @@ def buscar_jogador(nome, gender, competition):
             'seven_meter': seven_meter,
             'media_gols': round(media_gols, 2),
             'media_7m': round(media_7m, 2),
-            'media_tentativas': round(media_tentativas, 2),
-            'taxa_conversao': round(taxa_conversao, 2)
+            'media_tentativas': media_tentativas,
+            'taxa_conversao': taxa_conversao
         }
     return None
 
@@ -148,7 +156,12 @@ def todos():
         attempts = r['attempts']
 
         media_gols = goals / games if games > 0 else 0
-        taxa_conversao = (goals / attempts * 100) if attempts > 0 else 0
+        # attempts pode ser NULL (fonte sem esse dado, ex: Kvindeligaen) -
+        # nesse caso a taxa de conversao fica None, nunca 0
+        if attempts is not None:
+            taxa_conversao = round(goals / attempts * 100, 2) if attempts > 0 else 0
+        else:
+            taxa_conversao = None
 
         jogadores.append({
             'name': r['name'],
@@ -158,7 +171,7 @@ def todos():
             'attempts': attempts,
             'seven_meter': r['seven_meter'],
             'media_gols': round(media_gols, 2),
-            'taxa_conversao': round(taxa_conversao, 2)
+            'taxa_conversao': taxa_conversao
         })
 
     return jsonify({

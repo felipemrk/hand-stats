@@ -902,15 +902,19 @@
             document.getElementById("playerMedia7m").textContent =
               data.media_7m;
             document.getElementById("playerMediaTentativas").textContent =
-              data.media_tentativas;
+              data.media_tentativas === null
+                ? "Sem dados"
+                : data.media_tentativas;
             document.getElementById("playerTaxaConversao").textContent =
-              data.taxa_conversao + "%";
+              data.taxa_conversao === null
+                ? "Sem dados"
+                : data.taxa_conversao + "%";
 
             document.getElementById("playerTotalGols").textContent = data.goals;
             document.getElementById("playerTotal7m").textContent =
               data.seven_meter;
             document.getElementById("playerTotalTentativas").textContent =
-              data.attempts;
+              data.attempts === null ? "Sem dados" : data.attempts;
 
             abrirModal();
           })
